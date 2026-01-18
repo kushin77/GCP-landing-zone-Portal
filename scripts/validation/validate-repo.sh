@@ -1,0 +1,82 @@
+#!/bin/bash
+# Validation script for repository structure and required files
+# Usage: ./scripts/validation/validate-repo.sh
+
+set -euo pipefail
+
+echo "🔍 Validating repository structure..."
+
+REQUIRED_FILES=(
+  "README.md"
+  "CONTRIBUTING.md"
+  "SECURITY.md"
+  ".gitignore"
+  ".editorconfig"
+  ".pre-commit-config.yaml"
+  "run.sh"
+  "pmo.yaml"
+  "frontend/package.json"
+  "backend/requirements.txt"
+  "backend/pytest.ini"
+  "terraform/foundation/main.tf"
+  "docs/api/API.md"
+  "docs/architecture/ARCHITECTURE.md"
+  "docs/operations/DEPLOYMENT.md"
+  "docs/operations/RUNBOOKS.md"
+)
+
+echo "📋 Checking required files..."
+MISSING=0
+for file in "${REQUIRED_FILES[@]}"; do
+  if [ -f "$file" ]; then
+    echo "✅ $file"
+  else
+    echo "❌ MISSING: $file"
+    MISSING=$((MISSING + 1))
+  fi
+done
+
+if [ $MISSING -gt 0 ]; then
+  echo ""
+  echo "❌ Missing $MISSING required files"
+  exit 1
+fi
+
+echo ""
+echo "✅ All required files present!"
+
+# Check folder structure
+echo ""
+echo "📁 Checking folder structure..."
+REQUIRED_DIRS=(
+  "frontend/src"
+  "backend/src"
+  "terraform/foundation"
+  "terraform/networking"
+  "terraform/security"
+  "scripts/deployment"
+  "scripts/security"
+  "scripts/validation"
+  "docs/api"
+  "docs/architecture"
+  "docs/operations"
+  "docs/compliance"
+)
+
+for dir in "${REQUIRED_DIRS[@]}"; do
+  if [ -d "$dir" ]; then
+    echo "✅ $dir/"
+  else
+    echo "❌ MISSING: $dir/"
+    MISSING=$((MISSING + 1))
+  fi
+done
+
+if [ $MISSING -gt 0 ]; then
+  echo ""
+  echo "❌ Missing $MISSING required directories"
+  exit 1
+fi
+
+echo ""
+echo "✅ Repository structure is valid!"
