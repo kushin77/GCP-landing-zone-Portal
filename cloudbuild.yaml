@@ -1,0 +1,119 @@
+steps:
+  # Step 1: Validate code formatting
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'fmt-check'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Frontend
+        if command -v prettier &> /dev/null; then
+          prettier --check 'frontend/src/**/*.{ts,tsx,css}' || exit 1
+        fi
+        # Backend
+        if command -v black &> /dev/null; then
+          black --check backend/ || exit 1
+        fi
+
+  # Step 2: Run security scanning
+  - name: 'node:20'
+    id: 'snyk-test'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        npm install -g snyk
+        snyk auth "$_SNYK_TOKEN"
+        snyk test --severity-threshold=high || true
+
+  # Step 3: Run unit tests
+  - name: 'node:20'
+    id: 'test-frontend'
+    dir: 'frontend'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        npm install
+        npm run test -- --run --coverage
+
+  - name: 'python:3.11'
+    id: 'test-backend'
+    dir: 'backend'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install -r requirements.txt
+        python -m pytest tests/ --cov=src --cov-report=term
+
+  # Step 4: Terraform validation
+  - name: 'hashicorp/terraform:latest'
+    id: 'terraform-validate'
+    dir: 'terraform/foundation'
+    args:
+      - 'init'
+      - '-backend=false'
+
+  - name: 'hashicorp/terraform:latest'
+    id: 'terraform-plan'
+    dir: 'terraform/foundation'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - 'terraform init -backend=false && terraform plan'
+
+  # Step 5: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:latest'
+      - '.'
+
+  # Step 6: Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA'
+
+  # Step 7: Deploy to Cloud Run (staging)
+  - name: 'gcr.io/cloud-builders/gke-deploy'
+    id: 'deploy-staging'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy portal-backend \
+          --image='${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA' \
+          --region='${_REGION}' \
+          --platform='managed' \
+          --project='${PROJECT_ID}' \
+          --no-allow-unauthenticated \
+          --set-env-vars='ENVIRONMENT=staging,PROJECT_ID=${PROJECT_ID}' \
+          --min-instances=1 \
+          --max-instances=50
+
+# Build configuration
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+  
+timeout: '1800s'
+
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:latest'
+
+substitutions:
+  _REGION: 'us-central1'
+  _SNYK_TOKEN: ${_SNYK_TOKEN}
+
+tags:
+  - 'gcp-cloud'
+  - 'portal'
+  - 'ci-cd'
