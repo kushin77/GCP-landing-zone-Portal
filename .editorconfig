@@ -1,0 +1,32 @@
+# EditorConfig helps maintain consistent coding styles for multiple developers
+
+root = true
+
+# All files
+[*]
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+# JavaScript, TypeScript
+[*.{js,jsx,ts,tsx}]
+indent_size = 2
+max_line_length = 100
+
+# Python
+[*.py]
+indent_size = 4
+max_line_length = 100
+
+# JSON, YAML
+[*.{json,yml,yaml}]
+indent_size = 2
+
+# Terraform
+[*.tf]
+indent_size = 2
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false

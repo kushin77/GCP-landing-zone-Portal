@@ -1,0 +1,93 @@
+# Project Management Office (PMO) Metadata
+
+project:
+  name: "Landing Zone Portal"
+  short_name: "portal"
+  description: "Self-service control plane for Landing Zone infrastructure"
+  repository: "https://github.com/kushin77/GCP-landing-zone-Portal"
+
+ownership:
+  owner: "Platform Engineering"
+  owner_email: "platform-eng@example.com"
+  backup_owner: "[Backup Owner Name]"
+  team_slack: "#platform-engineering"
+  slack_alerts: "#portal-alerts"
+
+governance:
+  classification: "Internal Use"
+  compliance_tier: "tier-1"
+  security_tier: "high"
+  nist_controls:
+    - IA-2 # Authentication
+    - AC-2 # Account Management
+    - SC-7 # Boundary Protection
+    - SC-28 # Protection of Information at Rest
+    - AU-2 # Audit Events
+    - SI-4 # Information System Monitoring
+  fedramp_applicable: true
+
+deployment:
+  environments:
+    - staging
+    - prod
+  deploy_regions:
+    - us-central1
+  github_repo: "kushin77/GCP-landing-zone-Portal"
+  deploy_branch: "main"
+  deployment_id: "portal-prod-001"
+
+cost_tracking:
+  cost_center: "engineering"
+  budget_monthly: "$400"
+  billing_account: "[GCP Billing Account ID]"
+  chargeback: true
+  cost_tags:
+    - team: "platform-engineering"
+    - service: "portal"
+    - environment: "prod"
+
+sla:
+  uptime_target: "99.9%"
+  rto_hours: 1
+  rpo_minutes: 30
+  support_hours: "24/7"
+  escalation_path: "platform-engineering@example.com → CTO"
+
+monitoring:
+  status_page: "https://status.example.com/portal"
+  dashboard: "https://console.cloud.google.com/monitoring"
+  alerts_slack: "#portal-alerts"
+  on_call: true
+  on_call_rotation: "portal-on-call"
+  pagerduty_service_id: "[PagerDuty Service ID]"
+
+hub_integration:
+  hub_project_id: "[Hub GCP Project ID]"
+  portal_sa_email: "landing-zone-portal@[hub-project].iam.gserviceaccount.com"
+  workload_identity_enabled: true
+  hub_api_endpoint: "https://hub-api.[region].run.app"
+  hub_pubsub_topic: "landing-zone-portal-events"
+
+resources:
+  - name: "Portal Staging GCP Project"
+    project_id: "portal-staging-[org-id]"
+    environment: "staging"
+    region: "us-central1"
+
+  - name: "Portal Production GCP Project"
+    project_id: "portal-prod-[org-id]"
+    environment: "prod"
+    region: "us-central1"
+
+lifecycle:
+  created_at: "2026-01-18"
+  status: "active"
+  ttl_days: null
+  sunset_date: null
+
+tags:
+  team: "platform-engineering"
+  managed_by: "terraform"
+  version: "1.0.0"
+  git_branch: "main"
+  last_deployed: "[timestamp]"
