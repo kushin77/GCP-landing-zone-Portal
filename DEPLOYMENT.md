@@ -500,9 +500,9 @@ export OAUTH_ALLOWED_DOMAINS=yourdomain.com
 ### Frontend Configuration (Production)
 
 ```bash
-```bash
-# Health checks
-./run.sh validate
+# Already set in frontend/.env.production
+VITE_PUBLIC_BASE_PATH=/lz/
+VITE_API_URL=https://elevatediq.ai/lz
 ```
 
 ### Load Balancer + IAP (Recommended)
@@ -528,18 +528,17 @@ See `nginx/nginx.prod.conf` for an example that:
 ### Verification
 
 ```bash
-
-# Comprehensive test
-bash scripts/validation/folder-hierarchy-validation.sh
+curl -I https://elevatediq.ai/lz/health
+curl -I https://elevatediq.ai/lz/ready
+# API docs (dev only): https://elevatediq.ai/lz/docs
 ```
 
+### CI/CD Automation (Cloud Build)
 
-# Security scan
-gcloud compute security-policies describe portal-waf
-
-# Cost estimate
-gcloud compute instances list --format='table(name,MACHINE_TYPE,ZONE,STATUS)' | awk '{print $2}' | sort | uniq -c
-```
+- The pipeline in `cloudbuild.yaml` plans the `/lz` LB+IAP stack (terraform/04-workloads) using tfvars from Secret Manager.
+- Secret required: `PORTAL_WORKLOADS_TFVARS` (store the tfvars content). It is injected as `TFVARS_WORKLOADS`.
+- To automatically apply in CI, set substitution `_APPLY_WORKLOADS=true` on the build trigger. Default is plan-only.
+- Ensure tfvars includes: project_id, region, domain, frontend_bucket, cloud_run_service_name, iap_client_id, iap_client_secret.
 
 ---
 
