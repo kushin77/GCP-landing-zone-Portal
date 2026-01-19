@@ -540,8 +540,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
     SKIP_PATHS = {"/health", "/ready", "/metrics", "/docs", "/redoc", "/openapi.json"}
 
     async def dispatch(self, request: Request, call_next):
-        # Skip auth for health checks and docs
-        if request.url.path in self.SKIP_PATHS:
+        # Skip auth for health checks and docs (support base path like /lz)
+        path = request.url.path
+        if path in self.SKIP_PATHS or path.endswith(tuple(self.SKIP_PATHS)):
             return await call_next(request)
 
         # Try to authenticate (but don't block - let endpoint decide)
