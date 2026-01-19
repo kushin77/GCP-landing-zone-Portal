@@ -481,12 +481,58 @@ gcloud monitoring time-series list \
 
 ## Post-Deployment Validation
 
+## Public Endpoint and OAuth Protection (/lz)
+
+The Landing Zone Portal is served under the public base path `/lz` and should be protected by your Load Balancer using OAuth via Google IAP.
+
+### Application Configuration
+
+```bash
+# Backend (FastAPI) base path
+export BASE_PATH=/lz
+
+# IAP audience (example)
+export IAP_AUDIENCE="/projects/${PROJECT_NUMBER}/global/backendServices/${BACKEND_SERVICE_ID}"
+export REQUIRE_AUTH=true
+export OAUTH_ALLOWED_DOMAINS=yourdomain.com
+```
+
+### Frontend Configuration (Production)
+
+```bash
 ```bash
 # Health checks
 ./run.sh validate
+```
+
+### Load Balancer + IAP (Recommended)
+
+- Use a GCP HTTPS Global Load Balancer in front of Cloud Run or GKE services.
+- Enable IAP on the backend service to enforce OAuth at the edge.
+- IAP forwards the JWT via `x-goog-iap-jwt-assertion`; the backend validates it automatically.
+- Ensure the LB forwards `X-Forwarded-Prefix: /lz` so the app serves correctly under the base path.
+
+### Routing Layout
+
+- Public frontend: `https://elevatediq.ai/lz` → SPA assets
+- Backend API: `https://elevatediq.ai/lz/api/*` → FastAPI (root_path=/lz)
+- Health: `https://elevatediq.ai/lz/health`, `https://elevatediq.ai/lz/ready`
+
+### Optional Nginx Reverse Proxy (non-GCP environments)
+
+See `nginx/nginx.prod.conf` for an example that:
+- Routes `/lz/api/*` to the backend service
+- Serves `/lz/*` as the SPA
+- Preserves forwarded headers and the IAP JWT header if present
+
+### Verification
+
+```bash
 
 # Comprehensive test
 bash scripts/validation/folder-hierarchy-validation.sh
+```
+
 
 # Security scan
 gcloud compute security-policies describe portal-waf

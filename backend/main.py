@@ -150,6 +150,11 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
 
+    base_path = os.getenv("BASE_PATH", "")
+    # Normalize base path (e.g., "/lz" or "")
+    if base_path:
+        base_path = "/" + base_path.strip("/")
+
     app = FastAPI(
         title=SERVICE_NAME,
         version=SERVICE_VERSION,
@@ -157,7 +162,9 @@ def create_app() -> FastAPI:
         docs_url="/docs" if os.getenv("ENVIRONMENT") != "production" else None,
         redoc_url="/redoc" if os.getenv("ENVIRONMENT") != "production" else None,
         lifespan=lifespan,
-        openapi_url="/openapi.json" if os.getenv("ENVIRONMENT") != "production" else None
+        openapi_url="/openapi.json" if os.getenv("ENVIRONMENT") != "production" else None,
+        # Ensure the app is served under the configured base path (e.g., /lz)
+        root_path=base_path or ""
     )
 
     # Register exception handlers
