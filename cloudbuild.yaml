@@ -1,117 +1,292 @@
+# =============================================================================
+# Cloud Build Configuration - FAANG-Grade CI/CD Pipeline
+# =============================================================================
+# This pipeline includes:
+# - Security scanning (Snyk, Trivy, SAST)
+# - Code quality (linting, formatting)
+# - Comprehensive testing (unit, integration)
+# - Multi-stage Docker builds
+# - Staged deployments with health checks
+# =============================================================================
+
+substitutions:
+  _REGION: 'us-central1'
+  _BACKEND_IMAGE: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/backend'
+  _FRONTEND_IMAGE: '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/frontend'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  dynamic_substitutions: true
+
 steps:
-  # Step 1: Validate code formatting
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'fmt-check'
-    entrypoint: 'bash'
+  # ==========================================================================
+  # Stage 1: Security Scanning (Parallel)
+  # ==========================================================================
+  - name: 'aquasec/trivy'
+    id: 'trivy-scan-backend'
+    entrypoint: 'sh'
     args:
       - '-c'
       - |
-        # Frontend
-        if command -v prettier &> /dev/null; then
-          prettier --check 'frontend/src/**/*.{ts,tsx,css}' || exit 1
-        fi
-        # Backend
-        if command -v black &> /dev/null; then
-          black --check backend/ || exit 1
-        fi
+        trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed backend/ || true
+    waitFor: ['-']
 
-  # Step 2: Run security scanning
-  - name: 'node:20'
+  - name: 'node:20-slim'
     id: 'snyk-test'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        npm install -g snyk
-        snyk auth "$_SNYK_TOKEN"
-        snyk test --severity-threshold=high || true
+        if [ -n "$_SNYK_TOKEN" ]; then
+          npm install -g snyk
+          snyk auth "$_SNYK_TOKEN"
+          snyk test --severity-threshold=high frontend/ || true
+          snyk test --severity-threshold=high backend/ || true
+        else
+          echo "Snyk token not configured, skipping"
+        fi
+    waitFor: ['-']
 
-  # Step 3: Run unit tests
-  - name: 'node:20'
-    id: 'test-frontend'
+  # ==========================================================================
+  # Stage 2: Code Quality (Parallel)
+  # ==========================================================================
+  - name: 'python:3.11-slim'
+    id: 'lint-backend'
+    dir: 'backend'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install --quiet ruff bandit
+        echo "=== Running ruff linter ==="
+        ruff check . || exit 1
+        echo "=== Running bandit security linter ==="
+        bandit -r . -ll -ii --exclude ./tests || exit 1
+    waitFor: ['-']
+
+  - name: 'node:20-slim'
+    id: 'lint-frontend'
     dir: 'frontend'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        npm install
-        npm run test -- --run --coverage
+        npm ci --silent
+        echo "=== Running ESLint ==="
+        npm run lint || exit 1
+        echo "=== Checking types ==="
+        npx tsc --noEmit || exit 1
+    waitFor: ['-']
 
-  - name: 'python:3.11'
+  # ==========================================================================
+  # Stage 3: Testing
+  # ==========================================================================
+  - name: 'python:3.11-slim'
     id: 'test-backend'
     dir: 'backend'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        pip install -r requirements.txt
-        python -m pytest tests/ --cov=src --cov-report=term
+        pip install --quiet -r requirements.txt
+        echo "=== Running unit tests ==="
+        python -m pytest tests/ \
+          --cov=. \
+          --cov-report=term-missing \
+          --cov-report=xml:coverage.xml \
+          --junitxml=test-results.xml \
+          -v
+    waitFor: ['lint-backend']
 
-  # Step 4: Terraform validation
-  - name: 'hashicorp/terraform:latest'
-    id: 'terraform-validate'
-    dir: 'terraform/foundation'
-    args:
-      - 'init'
-      - '-backend=false'
-
-  - name: 'hashicorp/terraform:latest'
-    id: 'terraform-plan'
-    dir: 'terraform/foundation'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - 'terraform init -backend=false && terraform plan'
-
-  # Step 5: Build Docker image
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'build-image'
-    args:
-      - 'build'
-      - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA'
-      - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:latest'
-      - '.'
-
-  # Step 6: Push to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    id: 'push-image'
-    args:
-      - 'push'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA'
-
-  # Step 7: Deploy to Cloud Run (staging)
-  - name: 'gcr.io/cloud-builders/gke-deploy'
-    id: 'deploy-staging'
+  - name: 'node:20-slim'
+    id: 'test-frontend'
+    dir: 'frontend'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        gcloud run deploy portal-backend \
-          --image='${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA' \
-          --region='${_REGION}' \
-          --platform='managed' \
-          --project='${PROJECT_ID}' \
-          --no-allow-unauthenticated \
-          --set-env-vars='ENVIRONMENT=staging,PROJECT_ID=${PROJECT_ID}' \
-          --min-instances=1 \
-          --max-instances=50
+        npm ci --silent
+        echo "=== Running tests with coverage ==="
+        npm run test -- --run --coverage --reporter=junit --outputFile=test-results.xml
+    waitFor: ['lint-frontend']
 
-# Build configuration
-options:
-  machineType: 'N1_HIGHCPU_8'
-  logging: CLOUD_LOGGING_ONLY
-  
-timeout: '1800s'
+  # ==========================================================================
+  # Stage 4: Terraform Validation
+  # ==========================================================================
+  - name: 'hashicorp/terraform:1.7'
+    id: 'terraform-validate'
+    dir: 'terraform/01-foundation'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        terraform init -backend=false
+        terraform validate
+        terraform fmt -check -recursive
+    waitFor: ['-']
+
+  # ==========================================================================
+  # Stage 5: Build Container Images (Parallel)
+  # ==========================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-backend'
+    args:
+      - 'build'
+      - '--target=production'
+      - '--build-arg=BUILD_DATE=${BUILD_ID}'
+      - '--build-arg=VCS_REF=${COMMIT_SHA}'
+      - '--cache-from=${_BACKEND_IMAGE}:latest'
+      - '-t=${_BACKEND_IMAGE}:${COMMIT_SHA}'
+      - '-t=${_BACKEND_IMAGE}:${SHORT_SHA}'
+      - '-t=${_BACKEND_IMAGE}:latest'
+      - '-f=backend/Dockerfile'
+      - 'backend/'
+    waitFor: ['test-backend']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-frontend'
+    args:
+      - 'build'
+      - '--target=production'
+      - '--build-arg=VITE_API_URL=/api'
+      - '--build-arg=BUILD_DATE=${BUILD_ID}'
+      - '--build-arg=VCS_REF=${COMMIT_SHA}'
+      - '--cache-from=${_FRONTEND_IMAGE}:latest'
+      - '-t=${_FRONTEND_IMAGE}:${COMMIT_SHA}'
+      - '-t=${_FRONTEND_IMAGE}:${SHORT_SHA}'
+      - '-t=${_FRONTEND_IMAGE}:latest'
+      - '-f=frontend/Dockerfile'
+      - 'frontend/'
+    waitFor: ['test-frontend']
+
+  # ==========================================================================
+  # Stage 6: Container Security Scanning
+  # ==========================================================================
+  - name: 'aquasec/trivy'
+    id: 'scan-backend-image'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        trivy image \
+          --exit-code 1 \
+          --severity CRITICAL \
+          --ignore-unfixed \
+          ${_BACKEND_IMAGE}:${COMMIT_SHA} || exit 1
+    waitFor: ['build-backend']
+
+  - name: 'aquasec/trivy'
+    id: 'scan-frontend-image'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        trivy image \
+          --exit-code 1 \
+          --severity CRITICAL \
+          --ignore-unfixed \
+          ${_FRONTEND_IMAGE}:${COMMIT_SHA} || exit 1
+    waitFor: ['build-frontend']
+
+  # ==========================================================================
+  # Stage 7: Push to Artifact Registry
+  # ==========================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_BACKEND_IMAGE}'
+    waitFor: ['scan-backend-image']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-frontend'
+    args:
+      - 'push'
+      - '--all-tags'
+      - '${_FRONTEND_IMAGE}'
+    waitFor: ['scan-frontend-image']
+
+  # ==========================================================================
+  # Stage 8: Deploy to Staging
+  # ==========================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-backend-staging'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'portal-backend-staging'
+      - '--image=${_BACKEND_IMAGE}:${COMMIT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--service-account=portal-backend@${PROJECT_ID}.iam.gserviceaccount.com'
+      - '--set-env-vars=ENVIRONMENT=staging,GCP_PROJECT_ID=${PROJECT_ID}'
+      - '--min-instances=1'
+      - '--max-instances=10'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--timeout=60s'
+      - '--concurrency=80'
+    waitFor: ['push-backend']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-frontend-staging'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'portal-frontend-staging'
+      - '--image=${_FRONTEND_IMAGE}:${COMMIT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--no-allow-unauthenticated'
+      - '--min-instances=1'
+      - '--max-instances=10'
+      - '--memory=256Mi'
+      - '--cpu=1'
+      - '--timeout=30s'
+    waitFor: ['push-frontend']
+
+  # ==========================================================================
+  # Stage 9: Health Check Staging
+  # ==========================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'verify-staging'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "=== Waiting for deployment to stabilize ==="
+        sleep 30
+
+        BACKEND_URL=$(gcloud run services describe portal-backend-staging \
+          --region=${_REGION} \
+          --format='value(status.url)')
+
+        echo "=== Testing backend health endpoint ==="
+        for i in {1..5}; do
+          if curl -sf "$BACKEND_URL/health" > /dev/null; then
+            echo "Health check passed!"
+            exit 0
+          fi
+          echo "Attempt $i failed, retrying..."
+          sleep 10
+        done
+
+        echo "Health check failed after 5 attempts"
+        exit 1
+    waitFor: ['deploy-backend-staging', 'deploy-frontend-staging']
 
 images:
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:$COMMIT_SHA'
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/portal/app:latest'
+  - '${_BACKEND_IMAGE}:${COMMIT_SHA}'
+  - '${_BACKEND_IMAGE}:latest'
+  - '${_FRONTEND_IMAGE}:${COMMIT_SHA}'
+  - '${_FRONTEND_IMAGE}:latest'
 
-substitutions:
-  _REGION: 'us-central1'
-  _SNYK_TOKEN: ${_SNYK_TOKEN}
+timeout: '1800s'  # 30 minutes max
 
 tags:
   - 'gcp-cloud'

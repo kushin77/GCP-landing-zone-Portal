@@ -32,7 +32,7 @@ if [[ ! -d "$terraform_dir" ]]; then
     errors=$((errors + 1))
 else
     required_layers=("01-foundation" "02-network" "03-security" "04-workloads" "05-observability")
-    
+
     for layer in "${required_layers[@]}"; do
         if [[ -d "$terraform_dir/$layer" ]]; then
             echo -e "${GREEN}✅ $layer${NC}"
@@ -41,7 +41,7 @@ else
             errors=$((errors + 1))
         fi
     done
-    
+
     # Check for modules directory
     if [[ -d "$terraform_dir/modules" ]]; then
         echo -e "${GREEN}✅ modules/ (reusable components)${NC}"
@@ -60,7 +60,7 @@ if [[ ! -d "$scripts_dir" ]]; then
     errors=$((errors + 1))
 else
     required_scripts=("automation" "bootstrap" "deployment" "lib" "maintenance" "monitoring" "security" "validation")
-    
+
     for script_cat in "${required_scripts[@]}"; do
         if [[ -d "$scripts_dir/$script_cat" ]]; then
             echo -e "${GREEN}✅ $script_cat/${NC}"

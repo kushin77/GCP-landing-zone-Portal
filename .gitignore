@@ -103,3 +103,7 @@ Thumbs.db
 # Generated files
 docs/generated/
 .env.example.local
+backend/.venv/
+frontend/node_modules/
+*.log
+__pycache__/

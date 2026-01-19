@@ -2,7 +2,9 @@
 
 > Control plane for infrastructure self-service, cost transparency, and compliance management.
 
-Enterprise-grade user-facing application for the GCP Landing Zone. Independent deployment, secure integration with Hub infrastructure.
+**Enterprise-grade Infrastructure Operating System for Cloud Engineers**
+
+The Landing Zone Portal is a comprehensive, production-ready web application that transforms the [GCP-landing-zone](https://github.com/kushin77/GCP-landing-zone) Terraform infrastructure into an intelligent, self-service platform. This is the **future OS for engineers**—combining AI-powered insights, real-time cost optimization, automated compliance, and approval workflows into one beautiful interface.
 
 ## Quick Start
 
