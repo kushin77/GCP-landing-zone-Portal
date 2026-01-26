@@ -149,24 +149,24 @@ class LZSyncService:
     ):
         self.project_id = project_id
         self.gcp_parent = gcp_parent
-        
+
         # Initialize GCP clients
         self.asset_client = asset_v1.AssetServiceClient()
         self.container_client = container_v1.ClusterManagerClient()
         self.compute_client = compute_v1.InstancesClient()
         self.networks_client = compute_v1.NetworksClient()
-        
+
         # Pub/Sub for real-time events
         self.publisher_client = pubsub_v1.PublisherClient()
         self.subscriber_client = pubsub_v1.SubscriberClient()
-        
+
         # Sync history
         self.sync_history: Dict[SyncLayerType, SyncMetadata] = {}
 
     async def sync_infrastructure_state(self) -> LZInfrastructureState:
         """
         Fetch complete infrastructure state from GCP.
-        
+
         Returns:
             LZInfrastructureState: Current landing zone state
         """
@@ -180,25 +180,25 @@ class LZSyncService:
             # Fetch all resources in parallel
             projects, projects_synced = await self._get_projects()
             items_synced += projects_synced
-            
+
             vpcs, vpcs_synced = await self._get_vpcs()
             items_synced += vpcs_synced
-            
+
             instances, instances_synced = await self._get_compute_instances()
             items_synced += instances_synced
-            
+
             gke_clusters, gke_synced = await self._get_gke_clusters()
             items_synced += gke_synced
-            
+
             databases, db_synced = await self._get_databases()
             items_synced += db_synced
-            
+
             compliance_status = await self._get_compliance_status()
-            
+
             policy_violations = await self._get_policy_violations()
 
             sync_duration = (datetime.utcnow() - start_time).total_seconds()
-            
+
             metadata = SyncMetadata(
                 layer=SyncLayerType.API,
                 status=SyncStatus.SUCCESS,
@@ -241,14 +241,14 @@ class LZSyncService:
             FROM `cloudresourcemanager.googleapis.com/Project`
             WHERE resource.state = 'ACTIVE'
             """
-            
+
             request = asset_v1.SearchAllResourcesRequest(
                 scope=self.gcp_parent or f"projects/{self.project_id}",
                 asset_types=["cloudresourcemanager.googleapis.com/Project"],
             )
-            
+
             results = self.asset_client.search_all_resources(request=request)
-            
+
             projects = []
             for resource in results:
                 project = InfrastructureProject(
@@ -259,7 +259,7 @@ class LZSyncService:
                     lifecycle_state="ACTIVE",
                 )
                 projects.append(project)
-            
+
             return projects, len(projects)
 
         except Exception as e:
@@ -273,9 +273,9 @@ class LZSyncService:
                 scope=self.gcp_parent or f"projects/{self.project_id}",
                 asset_types=["compute.googleapis.com/Network"],
             )
-            
+
             results = self.asset_client.search_all_resources(request=request)
-            
+
             vpcs = []
             for resource in results:
                 vpc = InfrastructureVPC(
@@ -286,7 +286,7 @@ class LZSyncService:
                     routing_mode="REGIONAL",
                 )
                 vpcs.append(vpc)
-            
+
             return vpcs, len(vpcs)
 
         except Exception as e:
@@ -300,9 +300,9 @@ class LZSyncService:
                 scope=self.gcp_parent or f"projects/{self.project_id}",
                 asset_types=["compute.googleapis.com/Instance"],
             )
-            
+
             results = self.asset_client.search_all_resources(request=request)
-            
+
             instances = []
             for resource in results:
                 instance = InfrastructureInstance(
@@ -315,7 +315,7 @@ class LZSyncService:
                     labels=dict(resource.labels) if hasattr(resource, "labels") else {},
                 )
                 instances.append(instance)
-            
+
             return instances, len(instances)
 
         except Exception as e:
@@ -329,10 +329,10 @@ class LZSyncService:
                 scope=self.gcp_parent or f"projects/{self.project_id}",
                 asset_types=["container.googleapis.com/Cluster"],
             )
-            
+
             results = self.asset_client.search_all_resources(request=request)
             clusters = []
-            
+
             for resource in results:
                 cluster = {
                     "name": resource.display_name,
@@ -340,7 +340,7 @@ class LZSyncService:
                     "status": "RUNNING",
                 }
                 clusters.append(cluster)
-            
+
             return clusters, len(clusters)
 
         except Exception as e:
@@ -358,10 +358,10 @@ class LZSyncService:
                     "firestore.googleapis.com/Database",
                 ],
             )
-            
+
             results = self.asset_client.search_all_resources(request=request)
             databases = []
-            
+
             for resource in results:
                 db = {
                     "name": resource.display_name,
@@ -369,7 +369,7 @@ class LZSyncService:
                     "self_link": resource.name,
                 }
                 databases.append(db)
-            
+
             return databases, len(databases)
 
         except Exception as e:
@@ -381,7 +381,7 @@ class LZSyncService:
         try:
             # TODO: Integrate with actual compliance framework
             # (e.g., Cloud Security Command Center, custom policies)
-            
+
             return ComplianceStatus(
                 framework="CIS Google Cloud Platform Foundation Benchmark v1.2.0",
                 score=0.92,  # Placeholder
@@ -405,10 +405,10 @@ class LZSyncService:
         try:
             # TODO: Query enforcement gates from pmo.yaml
             # and check current state against policies
-            
+
             violations = []
             # Placeholder: Real implementation would check each policy
-            
+
             return violations
 
         except Exception as e:
@@ -436,7 +436,7 @@ async def get_infrastructure_state():
     """Get latest synced infrastructure state."""
     if not sync_service:
         raise HTTPException(status_code=503, detail="Sync service not initialized")
-    
+
     try:
         state = await sync_service.sync_infrastructure_state()
         return state.to_dict()
@@ -450,7 +450,7 @@ async def get_sync_status():
     """Get status of all sync layers."""
     if not sync_service:
         raise HTTPException(status_code=503, detail="Sync service not initialized")
-    
+
     status = sync_service.get_all_sync_status()
     return {
         layer.value: metadata.to_dict() if metadata else None
@@ -463,18 +463,18 @@ async def trigger_manual_sync(layers: Optional[List[SyncLayerType]] = None):
     """Manually trigger a sync operation."""
     if not sync_service:
         raise HTTPException(status_code=503, detail="Sync service not initialized")
-    
+
     try:
         # Trigger specified layers or all
         if not layers:
             layers = [SyncLayerType.API]
-        
+
         results = {}
         for layer in layers:
             if layer == SyncLayerType.API:
                 state = await sync_service.sync_infrastructure_state()
                 results[layer.value] = state.to_dict()
-        
+
         return {"triggered": True, "results": results}
     except Exception as e:
         logger.error(f"Failed to trigger sync: {e}")

@@ -43,7 +43,7 @@ layers:
     timeout_seconds: 120
     retry_attempts: 3
     retry_backoff_seconds: [5, 30, 300]
-    
+
     # GCP resources to sync
     asset_types:
       - cloudresourcemanager.googleapis.com/Project
@@ -53,7 +53,7 @@ layers:
       - sqladmin.googleapis.com/Instance
       - firestore.googleapis.com/Database
       - iam.googleapis.com/ServiceAccount
-    
+
     # Cache settings
     cache_enabled: true
     cache_ttl_minutes: 10
@@ -68,7 +68,7 @@ layers:
     subscription_name: "portal-lz-events"
     batch_size: 10
     ack_deadline_seconds: 60
-    
+
     # Event types to listen for
     event_types:
       - resource.created
@@ -96,7 +96,7 @@ layers:
 monitoring:
   enabled: true
   metrics_enabled: true
-  
+
   # Metrics to track
   metrics:
     - sync_latency_seconds
@@ -143,7 +143,7 @@ logging:
   level: INFO
   log_to_cloud_logging: true
   log_to_stdout: true
-  
+
   # Fields to include in logs
   fields:
     - timestamp
@@ -158,7 +158,7 @@ logging:
 security:
   # Service account for API access
   service_account_email: "portal-sync@project-id.iam.gserviceaccount.com"
-  
+
   # Minimal required permissions
   required_roles:
     - roles/compute.networkViewer
@@ -183,19 +183,19 @@ security:
 features:
   # Auto-sync portal on LZ changes
   auto_sync_enabled: true
-  
+
   # Real-time WebSocket updates
   websocket_enabled: true
-  
+
   # Auto-merge sync PRs
   auto_merge_enabled: true
-  
+
   # Show sync status in Portal UI
   show_sync_status: true
-  
+
   # Show infrastructure timeline
   show_infrastructure_timeline: true
-  
+
   # Show compliance evolution
   show_compliance_history: true
 
@@ -204,24 +204,24 @@ cost_optimization:
   # Batch API calls to reduce costs
   batch_enabled: true
   batch_size: 100
-  
+
   # Use Asset Inventory (cheaper than direct API calls)
   use_asset_inventory: true
-  
+
   # Cache results to avoid redundant calls
   caching_enabled: true
 
 # Development settings
 development:
   enabled: false  # Set to true to enable in dev
-  
+
   # Mock data for testing
   use_mock_data: false
   mock_data_file: "config/mock-lz-state.json"
-  
+
   # Verbose logging
   verbose_logging: false
-  
+
   # Skip real GCP calls
   skip_gcp_calls: false
 

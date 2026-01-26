@@ -1,0 +1,462 @@
+# Istio Service Mesh for Landing Zone Portal
+# mTLS, circuit breakers, observability, traffic management
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    istio-injection: enabled
+
+---
+# Enable sidecar injection in landing-zone namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: landing-zone
+  labels:
+    istio-injection: enabled
+
+---
+# RequestAuthentication - JWT validation
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: landing-zone
+spec:
+  jwtRules:
+  - issuer: "https://accounts.google.com"
+    jwksUri: "https://www.googleapis.com/oauth2/v3/certs"
+    audiences: "landing-zone-api"
+  - issuer: "https://securetoken.google.com/PROJECT_ID"
+    jwksUri: "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+
+---
+# AuthorizationPolicy - RBAC
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: backend-authz
+  namespace: landing-zone
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  action: ALLOW
+  rules:
+  # Allow frontend to backend
+  - from:
+    - source:
+        principals: ["cluster.local/ns/landing-zone/sa/frontend"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/v1/*"]
+  # Allow ingress to backend
+  - from:
+    - source:
+        namespaces: ["istio-system"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        ports: ["8000"]
+  # Deny everything else
+  - from: []
+    to: []
+    when:
+    - key: request.auth.claims[iss]
+      notValues: ["https://accounts.google.com"]
+
+---
+# PeerAuthentication - mTLS enforcement
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: landing-zone
+spec:
+  mtls:
+    mode: STRICT  # Require mTLS for all traffic
+  portLevelMtls:
+    8000:
+      mode: STRICT
+    5432:
+      mode: PERMISSIVE  # CloudSQL uses TLS, not mTLS
+
+---
+# PeerAuthentication for inter-service communication
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  mtls:
+    mode: PERMISSIVE
+
+---
+# VirtualService - Backend traffic management
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: backend
+  namespace: landing-zone
+spec:
+  hosts:
+  - backend
+  - backend.landing-zone
+  - backend.landing-zone.svc.cluster.local
+  http:
+  # Route to canary (new version)
+  - match:
+    - uri:
+        prefix: "/api/v1"
+    route:
+    - destination:
+        host: backend
+        subset: v1
+        port:
+          number: 8000
+      weight: 10  # Start with 10% traffic to canary
+    - destination:
+        host: backend
+        subset: v0
+        port:
+          number: 8000
+      weight: 90  # 90% to stable version
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+    corsPolicy:
+      allowOrigins:
+      - regex: ".*"
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - PATCH
+      - OPTIONS
+      allowHeaders:
+      - content-type
+      - authorization
+      exposeHeaders:
+      - content-length
+      maxAge: "24h"
+
+  # Default route (health checks, other)
+  - route:
+    - destination:
+        host: backend
+        subset: v0
+        port:
+          number: 8000
+      weight: 100
+    timeout: 10s
+
+---
+# DestinationRule - Backend service subsets and load balancing
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: backend
+  namespace: landing-zone
+spec:
+  host: backend
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 2
+        h2UpgradePolicy: UPGRADE
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: "backend-session"
+          ttl: 1h
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minRequestVolume: 5
+      splitExternalLocalOriginErrors: true
+  subsets:
+  # Stable version
+  - name: v0
+    labels:
+      version: v0
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 50
+      loadBalancer:
+        simple: LEAST_REQUEST
+  # Canary version
+  - name: v1
+    labels:
+      version: v1
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 10
+      loadBalancer:
+        simple: ROUND_ROBIN
+
+---
+# ServiceEntry for CloudSQL (external service)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: cloudsql
+  namespace: landing-zone
+spec:
+  hosts:
+  - "cloudsql.c.PROJECT_ID.internal"
+  addresses:
+  - "10.0.0.0/8"
+  ports:
+  - number: 5432
+    name: postgres
+    protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# ServiceEntry for Cloud Trace (external)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: google-api
+  namespace: landing-zone
+spec:
+  hosts:
+  - "*.googleapis.com"
+  addresses:
+  - "0.0.0.0/0"
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# Telemetry - Distributed tracing
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: backend-tracing
+  namespace: landing-zone
+spec:
+  tracing:
+  - providers:
+    - name: google
+      port: 443
+    randomSamplingPercentage: 10  # 10% sample rate
+    customTags:
+      "environment":
+        literal:
+          value: "production"
+      "version":
+        header:
+          name: "x-version"
+
+---
+# ProxyConfig - Sidecar configuration
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: landing-zone
+spec:
+  egress:
+  - hosts:
+    - "landing-zone/*"
+    - "istio-system/*"
+    port:
+      number: 8000
+      protocol: HTTP
+  - hosts:
+    - "external/*"
+    port:
+      number: 443
+      protocol: HTTPS
+  workloadSelector:
+    labels:
+      app: backend
+
+---
+# CircuitBreaker implementation via DestinationRule
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: backend-circuit-breaker
+  namespace: landing-zone
+spec:
+  host: backend.landing-zone.svc.cluster.local
+  trafficPolicy:
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 1m
+      maxEjectionPercent: 100
+      minRequestVolume: 5
+      splitExternalLocalOriginErrors: true
+      consecutiveGatewayErrors: 3
+
+---
+# RequestPolicy - Retry logic
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: backend-retry
+  namespace: landing-zone
+spec:
+  hosts:
+  - backend
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1"
+    route:
+    - destination:
+        host: backend
+        port:
+          number: 8000
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retriableStatusCodes:
+      - 503
+      - 504
+    timeout: 30s
+
+---
+# Monitoring - ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-metrics
+  namespace: landing-zone
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+
+---
+# Rate limiting with RequestPolicy
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: backend-rate-limit
+  namespace: landing-zone
+spec:
+  hosts:
+  - backend
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/auth"
+    route:
+    - destination:
+        host: backend
+        port:
+          number: 8000
+    # Apply stricter rate limit on auth endpoints
+    corsPolicy:
+      allowOrigins:
+      - regex: ".*"
+      maxAge: "1m"
+
+---
+# Fault Injection (for testing)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: backend-fault-injection
+  namespace: landing-zone
+  annotations:
+    description: "For chaos engineering testing only"
+spec:
+  hosts:
+  - backend
+  http:
+  - match:
+    - headers:
+        x-chaos:
+          exact: "true"
+    fault:
+      delay:
+        percentage: 1.0
+        fixedDelay: 1000ms
+      abort:
+        percentage: 0.1  # 0.1% error rate for testing
+        grpcStatus: UNAVAILABLE
+    route:
+    - destination:
+        host: backend
+        port:
+          number: 8000
+  - route:
+    - destination:
+        host: backend
+        port:
+          number: 8000
+
+---
+# Monitoring Dashboard Configmap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-dashboards
+  namespace: landing-zone
+data:
+  grafana-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Istio Service Mesh - Landing Zone",
+        "panels": [
+          {
+            "title": "Request Rate",
+            "targets": [
+              {
+                "expr": "rate(istio_requests_total[1m])"
+              }
+            ]
+          },
+          {
+            "title": "Error Rate",
+            "targets": [
+              {
+                "expr": "rate(istio_request_total{response_code=~'5..'}[1m])"
+              }
+            ]
+          },
+          {
+            "title": "P95 Latency",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(istio_request_duration_milliseconds[1m]))"
+              }
+            ]
+          },
+          {
+            "title": "Traffic Split (canary)",
+            "targets": [
+              {
+                "expr": "istio_requests_total{destination_version_label=~'v0|v1'}"
+              }
+            ]
+          }
+        ]
+      }
+    }
