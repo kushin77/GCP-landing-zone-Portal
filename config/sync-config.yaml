@@ -1,0 +1,234 @@
+# Landing Zone Sync Configuration
+# Controls how the Portal syncs with the Landing Zone
+
+sync_enabled: true
+
+# Sync layers (order = priority)
+layers:
+  # Layer 1: Webhook trigger from LZ repo updates
+  webhook:
+    enabled: true
+    description: "Triggered by changes to Landing Zone repository"
+    timeout_seconds: 300
+    paths_to_watch:
+      - terraform/**
+      - pmo.yaml
+      - ENFORCEMENT_GATES.md
+      - docs/**
+      - RUNBOOKS.md
+
+  # Layer 2: Scheduled git sync for docs and configs
+  git_sync:
+    enabled: true
+    description: "Automatically sync documentation and configs from LZ"
+    frequency_hours: 6
+    auto_pull_request: true
+    auto_merge: true
+    paths:
+      - docs/**
+      - pmo.yaml
+      - ENFORCEMENT_GATES.md
+      - RUNBOOKS.md
+      - ARCHITECTURE.md
+      - README.md
+    destinations:
+      - docs/lz-reference/
+      - config/lz-config/
+
+  # Layer 3: API sync for real-time infrastructure state
+  api_sync:
+    enabled: true
+    description: "Query actual GCP infrastructure state"
+    frequency_minutes: 5
+    timeout_seconds: 120
+    retry_attempts: 3
+    retry_backoff_seconds: [5, 30, 300]
+    
+    # GCP resources to sync
+    asset_types:
+      - cloudresourcemanager.googleapis.com/Project
+      - compute.googleapis.com/Network
+      - compute.googleapis.com/Instance
+      - container.googleapis.com/Cluster
+      - sqladmin.googleapis.com/Instance
+      - firestore.googleapis.com/Database
+      - iam.googleapis.com/ServiceAccount
+    
+    # Cache settings
+    cache_enabled: true
+    cache_ttl_minutes: 10
+    use_cache_on_failure: true
+    cache_failure_ttl_minutes: 60
+
+  # Layer 4: Real-time event streaming via Pub/Sub
+  pubsub:
+    enabled: true
+    description: "Real-time infrastructure change notifications"
+    topic_name: "lz-infrastructure-events"
+    subscription_name: "portal-lz-events"
+    batch_size: 10
+    ack_deadline_seconds: 60
+    
+    # Event types to listen for
+    event_types:
+      - resource.created
+      - resource.deleted
+      - resource.updated
+      - policy.violation
+      - compliance.drift
+      - cost.anomaly
+
+  # Layer 5: Historical analytics via BigQuery
+  bigquery:
+    enabled: true
+    description: "Aggregate trends and historical data"
+    frequency: "daily"  # Schedule: daily, weekly, monthly
+    dataset_name: "lz_metrics"
+    tables:
+      - name: "daily_metrics"
+        query: "queries/daily_metrics.sql"
+      - name: "compliance_trends"
+        query: "queries/compliance_trends.sql"
+      - name: "cost_analysis"
+        query: "queries/cost_analysis.sql"
+
+# Monitoring and alerting
+monitoring:
+  enabled: true
+  metrics_enabled: true
+  
+  # Metrics to track
+  metrics:
+    - sync_latency_seconds
+    - sync_success_rate
+    - items_synced_count
+    - sync_errors_count
+    - data_freshness_hours
+
+  # Alert thresholds
+  alerts:
+    - name: SyncFailureRate
+      metric: sync_success_rate
+      threshold: 0.95
+      comparison: less_than
+      duration_minutes: 5
+      severity: warning
+      notification_channels: [slack, email, pagerduty]
+
+    - name: SyncLatency
+      metric: sync_latency_seconds
+      threshold: 300  # 5 minutes
+      comparison: greater_than
+      duration_minutes: 10
+      severity: warning
+      notification_channels: [slack]
+
+    - name: DataFreshness
+      metric: data_freshness_hours
+      threshold: 6
+      comparison: greater_than
+      severity: info
+      notification_channels: [slack]
+
+    - name: SyncErrors
+      metric: sync_errors_count
+      threshold: 5
+      comparison: greater_than
+      duration_minutes: 10
+      severity: critical
+      notification_channels: [slack, email, pagerduty]
+
+# Logging
+logging:
+  level: INFO
+  log_to_cloud_logging: true
+  log_to_stdout: true
+  
+  # Fields to include in logs
+  fields:
+    - timestamp
+    - layer
+    - status
+    - items_synced
+    - errors
+    - duration_seconds
+    - client_version
+
+# Security
+security:
+  # Service account for API access
+  service_account_email: "portal-sync@project-id.iam.gserviceaccount.com"
+  
+  # Minimal required permissions
+  required_roles:
+    - roles/compute.networkViewer
+    - roles/compute.osLoginViewer
+    - roles/container.viewer
+    - roles/cloudasset.viewer
+    - roles/monitoring.viewer
+    - roles/cloudkms.viewer
+
+  # GitHub token permissions
+  github_token_scopes:
+    - repo:read
+    - actions:read
+
+  # Secrets required
+  secrets_required:
+    - PORTAL_SYNC_TOKEN  # GitHub token
+    - GCP_SERVICE_ACCOUNT_KEY  # GCP service account JSON
+    - SLACK_WEBHOOK  # Slack notifications
+
+# Feature flags
+features:
+  # Auto-sync portal on LZ changes
+  auto_sync_enabled: true
+  
+  # Real-time WebSocket updates
+  websocket_enabled: true
+  
+  # Auto-merge sync PRs
+  auto_merge_enabled: true
+  
+  # Show sync status in Portal UI
+  show_sync_status: true
+  
+  # Show infrastructure timeline
+  show_infrastructure_timeline: true
+  
+  # Show compliance evolution
+  show_compliance_history: true
+
+# Cost optimization
+cost_optimization:
+  # Batch API calls to reduce costs
+  batch_enabled: true
+  batch_size: 100
+  
+  # Use Asset Inventory (cheaper than direct API calls)
+  use_asset_inventory: true
+  
+  # Cache results to avoid redundant calls
+  caching_enabled: true
+
+# Development settings
+development:
+  enabled: false  # Set to true to enable in dev
+  
+  # Mock data for testing
+  use_mock_data: false
+  mock_data_file: "config/mock-lz-state.json"
+  
+  # Verbose logging
+  verbose_logging: false
+  
+  # Skip real GCP calls
+  skip_gcp_calls: false
+
+# Version and metadata
+metadata:
+  version: "1.0.0"
+  created_date: "2026-01-26"
+  last_updated: "2026-01-26"
+  updated_by: "Platform Engineering"
+  documentation_url: "https://github.com/kushin77/GCP-landing-zone-Portal/blob/main/LIVE_SYNC_ARCHITECTURE.md"
