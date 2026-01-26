@@ -1,0 +1,406 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: portal
+  labels:
+    name: portal
+---
+# Service Account for Workload Identity
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: portal-backend
+  namespace: portal
+  annotations:
+    iam.gke.io/gcp-service-account: portal-backend@PROJECT_ID.iam.gserviceaccount.com
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-config
+  namespace: portal
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  API_VERSION: "v1"
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "100"
+  DATABASE_TIMEOUT_SECONDS: "30"
+  CACHE_TTL_SECONDS: "300"
+---
+# Secret for sensitive data (referenced but NOT created here - use Google Secret Manager)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: portal-secrets
+  namespace: portal
+type: Opaque
+data:
+  # These should be populated from Google Secret Manager
+  # See: kubectl create secret generic portal-secrets --from-file=secrets/
+  OAUTH_CLIENT_ID: "" # base64 encoded
+  OAUTH_CLIENT_SECRET: "" # base64 encoded
+---
+# Backend Deployment with proper configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal-backend
+  namespace: portal
+  labels:
+    app: portal-backend
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0  # Zero downtime deployments
+  
+  selector:
+    matchLabels:
+      app: portal-backend
+  
+  template:
+    metadata:
+      labels:
+        app: portal-backend
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    
+    spec:
+      # Graceful shutdown period
+      terminationGracePeriodSeconds: 30
+      
+      # Service account for Workload Identity
+      serviceAccountName: portal-backend
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsReadOnlyRootFilesystem: true
+      
+      containers:
+      - name: backend
+        # Image should use specific version tag, not 'latest'
+        image: REGION-docker.pkg.dev/PROJECT_ID/portal/backend:VERSION_TAG
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        
+        # Environment configuration
+        env:
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: portal-config
+              key: ENVIRONMENT
+        
+        - name: GCP_PROJECT_ID
+          value: "PROJECT_ID"
+        
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: portal-config
+              key: LOG_LEVEL
+        
+        - name: REDIS_URL
+          value: "redis://redis.portal.svc.cluster.local:6379/0"
+        
+        - name: FIRESTORE_COLLECTION_PREFIX
+          value: "portal"
+        
+        - name: ALLOW_DEV_BYPASS
+          value: "false"  # NEVER allow in production
+        
+        # Secrets from Google Secret Manager (via Workload Identity)
+        envFrom:
+        - secretRef:
+            name: portal-secrets
+        
+        # Container-level security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+        
+        # Resource limits and requests
+        resources:
+          requests:
+            cpu: 100m        # Minimum CPU needed
+            memory: 256Mi    # Minimum memory needed
+            ephemeral-storage: 100Mi
+          limits:
+            cpu: 500m        # Maximum CPU allowed
+            memory: 512Mi    # Maximum memory allowed
+            ephemeral-storage: 500Mi
+        
+        # Liveness probe - restart if unhealthy
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Readiness probe - remove from load balancer if unhealthy
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        
+        # Startup probe - wait for slow startups
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 30  # Wait up to 300 seconds for startup
+        
+        # Volume mounts
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        
+        # Lifecycle hooks for graceful shutdown
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - sleep 15  # Wait for load balancer to drain connections
+      
+      # Init container to validate configuration
+      initContainers:
+      - name: config-validator
+        image: REGION-docker.pkg.dev/PROJECT_ID/portal/backend:VERSION_TAG
+        command:
+        - sh
+        - -c
+        - |
+          # Validate configuration
+          [ -n "$GCP_PROJECT_ID" ] || exit 1
+          [ -n "$REDIS_URL" ] || exit 1
+          echo "Configuration valid"
+        env:
+        - name: GCP_PROJECT_ID
+          value: "PROJECT_ID"
+        - name: REDIS_URL
+          value: "redis://redis.portal.svc.cluster.local:6379/0"
+      
+      # Volumes
+      volumes:
+      - name: config
+        configMap:
+          name: portal-config
+      - name: tmp
+        emptyDir:
+          sizeLimit: 500Mi
+      
+      # Pod affinity to spread across nodes
+      affinity:
+        # Avoid running multiple replicas on same node
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - portal-backend
+              topologyKey: kubernetes.io/hostname
+        
+        # Prefer nodes with more resources
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-nodepool
+                operator: In
+                values:
+                - default-pool
+      
+      # Tolerations for node taints
+      tolerations:
+      - key: workload
+        operator: Equal
+        value: portal
+        effect: NoSchedule
+---
+# Service to expose backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal-backend
+  namespace: portal
+  labels:
+    app: portal-backend
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  
+  selector:
+    app: portal-backend
+  
+  # Session affinity disabled (stateless service)
+  sessionAffinity: None
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: portal-backend
+  namespace: portal
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: portal-backend
+  
+  minReplicas: 3
+  maxReplicas: 10
+  
+  metrics:
+  # Scale based on CPU utilization
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # Scale when > 70% CPU
+  
+  # Scale based on memory utilization
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80  # Scale when > 80% memory
+  
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100  # Double replicas
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 30
+      selectPolicy: Max
+---
+# Pod Disruption Budget (always keep minimum running)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: portal-backend
+  namespace: portal
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: portal-backend
+  unhealthyPodEvictionPolicy: AlwaysAllow
+---
+# Network Policy to restrict traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: portal-backend
+  namespace: portal
+spec:
+  podSelector:
+    matchLabels:
+      app: portal-backend
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow from load balancer
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Allow health checks from kubelet
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  egress:
+  # Allow DNS
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+  
+  # Allow to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  
+  # Allow to GCP APIs
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
