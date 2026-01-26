@@ -43,6 +43,88 @@ This document tracks the resolution of 10 critical architectural issues in the G
 
 ---
 
+### CI/CD: Using Google Secret Manager (GSM) in Pipelines ✅
+**Context**: Secrets must never be stored in the repository. CI/CD pipelines (Cloud Build, GitHub Actions, GitLab CI) should fetch secrets at runtime from Google Secret Manager (GSM) using short-lived credentials or Workload Identity.
+
+**What to do**:
+- Use Workload Identity or a dedicated CI service account with the least privileges to access specific secrets.
+- Grant `roles/secretmanager.secretAccessor` only to the service account used in your pipeline.
+- Do not embed service account JSON in CI variables; instead store keys in GSM and rotate regularly.
+- Use the official providers/integrations to fetch secrets at runtime:
+    - Cloud Build: use `gcloud secrets versions access` in build steps or the `availableSecrets` field to map secret names into environment variables.
+    - GitHub Actions: use `google-github-actions/auth` + `google-github-actions/get-secretmanager-secrets` to fetch secrets securely.
+
+**Cloud Build example (snippets)**:
+
+1. Grant access to Cloud Build service account:
+
+```bash
+PROJECT_ID=your-project-id
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member=serviceAccount:${PROJECT_ID}@cloudbuild.gserviceaccount.com \
+    --role=roles/secretmanager.secretAccessor
+```
+
+2. Cloud Build `cloudbuild.yaml` step using direct `gcloud` access:
+
+```yaml
+steps:
+- name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+        export DB_PASSWORD=$(gcloud secrets versions access latest --secret="db-password" --project=$PROJECT_ID)
+        export OAUTH_CLIENT_SECRET=$(gcloud secrets versions access latest --secret="oauth-client-secret" --project=$PROJECT_ID)
+        # run tests / build / deploy using these env vars
+```
+
+3. Preferred Cloud Build pattern: use `availableSecrets` to avoid logging or accidental exposure. See Cloud Build docs for `availableSecrets` mapping.
+
+**GitHub Actions example**:
+
+```yaml
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        permissions: write-all
+        steps:
+            - uses: actions/checkout@v4
+            - id: auth
+                uses: google-github-actions/auth@v1
+                with:
+                    workload_identity_provider: 'projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL/providers/PROVIDER'
+                    service_account: 'ci-runner@PROJECT_ID.iam.gserviceaccount.com'
+
+            - id: secrets
+                uses: google-github-actions/get-secretmanager-secrets@v1
+                with:
+                    secrets: |
+                        DB_PASSWORD:projects/PROJECT_ID/secrets/db-password:latest
+                        OAUTH_CLIENT_SECRET:projects/PROJECT_ID/secrets/oauth-client-secret:latest
+
+            - name: Run build
+                env:
+                    DB_PASSWORD: ${{ steps.secrets.outputs.DB_PASSWORD }}
+                    OAUTH_CLIENT_SECRET: ${{ steps.secrets.outputs.OAUTH_CLIENT_SECRET }}
+                run: |
+                    ./scripts/deploy.sh
+```
+
+**Best practices**:
+- Limit IAM scope: grant `secretAccessor` to only the CI service account and only for the secrets it needs.
+- Avoid writing secrets to disk; use them from env vars or in-memory only.
+- Enable Secret Manager audit logs and monitor access patterns.
+- Rotate sensitive secrets periodically and automate rotation where possible.
+- Use KMS-wrapped secrets for extra protection if required by compliance.
+
+**Next steps for this repo**:
+1. Add `cloudbuild.yaml` integration steps referencing the new `scripts/disaster_recovery.sh` and `k8s/backend-deployment.yaml` that read runtime secrets from GSM.
+2. Update CI runners to use Workload Identity or short-lived keys and grant `roles/secretmanager.secretAccessor` to the CI service account only.
+3. After branch push/PR, update issue #40 with the GSM integration details and close (or re-close) with reference to this section and the added CI/CD docs.
+
+---
+
 ### #48: Container Orchestration Missing ✅
 **Status**: Kubernetes Manifests Provided  
 **Solution File**: `k8s/backend-deployment.yaml`
