@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
-from config import SERVICE_NAME, SERVICE_VERSION, API_CONFIG, LOGGING_CONFIG
+from config import SERVICE_NAME, SERVICE_VERSION, API_CONFIG, LOGGING_CONFIG, ALLOWED_ORIGINS, PORTAL_URL, IP_ADDRESS
 
 # Import routers
 from routers import projects, costs, compliance, workflows, ai
@@ -26,9 +26,11 @@ from routers import projects, costs, compliance, workflows, ai
 # Import middleware
 from middleware.security import SecurityMiddleware, get_cors_config
 from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
+from middleware.distributed_rate_limit import RateLimitMiddleware as DistributedRateLimitMiddleware, get_rate_limiter, shutdown_rate_limiter
 from middleware.errors import register_exception_handlers
 from middleware.auth import AuthMiddleware, get_current_user, User
-from services.cache import get_cache_service, shutdown_cache, CacheNamespace
+from services.cache_service import get_cache_service, shutdown_cache
+from config.observability import setup_tracing, setup_structured_logging, define_custom_metrics
 
 # Configure structured logging
 logging.basicConfig(
@@ -183,7 +185,15 @@ def create_app() -> FastAPI:
 
     # 4. CORS (must be last to properly handle preflight)
     cors_config = get_cors_config()
-    app.add_middleware(CORSMiddleware, **cors_config)
+    # Override CORS to allow both IP address (Phase 1) and DNS (Phase 2)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["X-Request-ID", "X-Process-Time"]
+    )
 
     # Include routers
     app.include_router(projects.router)

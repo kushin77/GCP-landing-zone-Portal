@@ -18,11 +18,11 @@ on:
 jobs:
   notify-portal:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Landing Zone repo
         uses: actions/checkout@v4
-      
+
       - name: Trigger Portal Sync Workflow
         run: |
           curl -X POST \
@@ -40,7 +40,7 @@ jobs:
                 "branch": "${{ github.ref_name }}"
               }
             }'
-      
+
       - name: Log notification
         run: |
           echo "Portal sync triggered for commit ${{ github.sha }}"
