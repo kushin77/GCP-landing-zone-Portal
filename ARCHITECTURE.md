@@ -303,6 +303,6 @@ Developer ─→ Git Commit ─→ Cloud Build CI ─→ Tests ─→ Deploy to 
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: 2026-01-19  
+**Version**: 1.0
+**Last Updated**: 2026-01-19
 **Owner**: Platform Engineering Team

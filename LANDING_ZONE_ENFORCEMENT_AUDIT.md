@@ -1,8 +1,8 @@
 # Landing Zone Enforcement Audit Report
 **GCP-landing-zone-Portal**
 
-Generated: 2026-01-19  
-Status: ⚠️ **REMEDIATION REQUIRED**  
+Generated: 2026-01-19
+Status: ⚠️ **REMEDIATION REQUIRED**
 Ready for Onboarding: ❌ **NO** (4 critical gaps)
 
 ---
@@ -399,13 +399,13 @@ bash scripts/validation/folder-hierarchy-validation.sh
 
 ## Contact & Approval
 
-**Audit Reviewer**: Platform Engineering  
-**Date**: 2026-01-19  
+**Audit Reviewer**: Platform Engineering
+**Date**: 2026-01-19
 **Approval Required**: Before onboarding as spoke
 
 For exceptions, submit: `docs/governance/templates/EXEMPTION_REQUEST_TEMPLATE.md`
 
 ---
 
-**Status**: ⚠️ **REMEDIATION IN PROGRESS**  
+**Status**: ⚠️ **REMEDIATION IN PROGRESS**
 **Last Updated**: 2026-01-19

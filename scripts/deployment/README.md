@@ -109,5 +109,5 @@ gcloud secrets add-iam-policy-binding PORTAL_WORKLOADS_TFVARS \
 
 ---
 
-**Status**: Production-ready automation stack  
+**Status**: Production-ready automation stack
 **Last Updated**: 2026-01-19

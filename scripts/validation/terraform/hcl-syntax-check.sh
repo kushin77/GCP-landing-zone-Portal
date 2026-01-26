@@ -15,13 +15,13 @@ exit_code=0
 # Validate Terraform syntax
 validate_terraform_syntax() {
     local file="$1"
-    
+
     if ! terraform -chdir="${file%/*}" fmt -check "$file" 2>/dev/null; then
         echo "ERROR: Terraform formatting issue in $file"
         echo "Run: terraform fmt $file"
         return 1
     fi
-    
+
     return 0
 }
 

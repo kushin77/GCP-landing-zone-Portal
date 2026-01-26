@@ -261,8 +261,8 @@ terraform state list
 
 ---
 
-**Status**: Ready for Production Deployment  
-**Date**: 2026-01-19  
+**Status**: Ready for Production Deployment
+**Date**: 2026-01-19
 **Support**: See DEPLOYMENT.md and terraform/04-workloads/lb/README.md
 
 EOF

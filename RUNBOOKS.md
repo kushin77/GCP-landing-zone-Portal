@@ -15,7 +15,7 @@ Operational playbooks for incident response, disaster recovery, and routine main
 
 ### P1: Backend API Down
 
-**Severity**: Critical | **SLA**: 15 minutes to resolution  
+**Severity**: Critical | **SLA**: 15 minutes to resolution
 **Impact**: Users cannot access Portal functionality
 
 #### Detection
@@ -111,7 +111,7 @@ gcloud run services update-traffic portal-backend \
 
 ### P2: Database Unavailable
 
-**Severity**: Critical | **SLA**: 30 minutes  
+**Severity**: Critical | **SLA**: 30 minutes
 **Impact**: Data cannot be persisted or retrieved
 
 #### Detection
@@ -154,7 +154,7 @@ gcloud sql backups restore BACKUP_ID \
 
 ### P3: High Latency / Slow Responses
 
-**Severity**: Medium | **SLA**: 1 hour  
+**Severity**: Medium | **SLA**: 1 hour
 **Impact**: Users experience slow Portal access
 
 #### Diagnosis
@@ -458,7 +458,7 @@ gcloud secrets add-iam-policy-binding db-password \
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: 2026-01-19  
-**Owner**: Platform Engineering Team  
+**Version**: 1.0
+**Last Updated**: 2026-01-19
+**Owner**: Platform Engineering Team
 **Review Cycle**: Quarterly
