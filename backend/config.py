@@ -78,3 +78,24 @@ __all__ = [
     "HUB_CONFIG",
     "LOGGING_CONFIG"
 ]
+
+
+# ---------------------------------------------------------------------------
+# Load sensitive values from Google Secret Manager (GSM) when available
+# ---------------------------------------------------------------------------
+try:
+    from backend.services.secret_manager import fetch_and_set_env
+
+    # Secrets we expect to be stored in GSM for production
+    _gsm_secrets = [
+        "DB_PASSWORD",
+        "OAUTH_CLIENT_SECRET",
+        "IAP_AUDIENCE",
+        "REDIS_URL",
+    ]
+
+    # Populate env vars only if they are not already set (local dev override supported)
+    fetch_and_set_env(_gsm_secrets)
+except Exception:
+    # If Secret Manager helper or library isn't available, do nothing.
+    pass
