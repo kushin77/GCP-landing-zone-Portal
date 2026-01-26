@@ -1,7 +1,7 @@
 # GCP Landing Zone Portal - Enhancement Recommendations
 
-**Date**: 2026-01-19  
-**Category**: Strategic Improvements for Scale, Security, and Operations  
+**Date**: 2026-01-19
+**Category**: Strategic Improvements for Scale, Security, and Operations
 **Priority**: High-Impact Enhancements for Enterprise Readiness
 
 ---
@@ -22,7 +22,7 @@ This document outlines strategic enhancements to maximize the Portal's value as 
 
 ### 1.1 Zero-Trust Network Architecture
 
-**Current State**: Basic VPC firewall rules (foundation)  
+**Current State**: Basic VPC firewall rules (foundation)
 **Enhancement**: Implement VPC Service Controls + Binary Authorization
 
 ```hcl
@@ -37,7 +37,7 @@ resource "google_access_context_manager_service_perimeter" "perimeter" {
   parent         = google_access_context_manager_access_policy.policy.name
   name           = "accessPolicies/${google_access_context_manager_access_policy.policy.name}/servicePerimeters/portal"
   title          = "Portal Service Perimeter"
-  
+
   status {
     resources = [
       "projects/${var.project_id}"
@@ -53,16 +53,16 @@ resource "google_access_context_manager_service_perimeter" "perimeter" {
 # Enforce container image signing
 resource "google_binary_authorization_policy" "policy" {
   project = var.project_id
-  
+
   admission_whitelist_patterns {
     name_pattern = "gcr.io/${var.project_id}/*"
   }
-  
+
   default_admission_rule {
     require_attestations_by = [google_container_analysis_note.portal.name]
     enforcement_mode        = "ENFORCED_BLOCK_AND_AUDIT_LOG"
   }
-  
+
   kubernetes_namespace_admissions {
     name_pattern = "prod-*"
     mode         = "ALWAYS"
@@ -81,7 +81,7 @@ resource "google_binary_authorization_policy" "policy" {
 
 ### 1.2 Secrets Rotation Automation
 
-**Current State**: Manual Secret Manager management  
+**Current State**: Manual Secret Manager management
 **Enhancement**: Automated rotation with audit trail
 
 ```python
@@ -97,21 +97,21 @@ def rotate_secrets(request):
     """Rotate secrets based on rotation policy"""
     client = secretmanager.SecretManagerServiceClient()
     logger = cloud_logging.Client().logger("secret-rotation")
-    
+
     secrets_to_rotate = [
         ("db-password", 30),  # Rotate every 30 days
         ("api-key", 90),
         ("jwt-secret", 365),
     ]
-    
+
     for secret_id, max_age_days in secrets_to_rotate:
         secret_path = f"projects/{project_id}/secrets/{secret_id}"
-        
+
         # Get current version creation time
         response = client.get_secret(request={"name": secret_path})
         created = response.created_at
         age_days = (datetime.utcnow() - created).days
-        
+
         if age_days > max_age_days:
             # Trigger rotation (implementation depends on secret type)
             logger.log_struct({
@@ -123,7 +123,7 @@ def rotate_secrets(request):
             })
             # Call rotation handler (database-specific, etc.)
             rotate_secret(secret_id)
-    
+
     return {"status": "rotation_complete"}
 ```
 
@@ -138,7 +138,7 @@ def rotate_secrets(request):
 
 ### 1.3 Policy-as-Code Enforcement
 
-**Current State**: Static organization policies  
+**Current State**: Static organization policies
 **Enhancement**: Dynamic policy evaluation with Sentinel/OPA
 
 ```rego
@@ -186,7 +186,7 @@ deny[msg] {
 
 ### 2.1 Detailed Cost Attribution & Chargeback
 
-**Current State**: Basic cost tracking in 05-observability  
+**Current State**: Basic cost tracking in 05-observability
 **Enhancement**: Granular cost allocation to teams/projects
 
 ```hcl
@@ -205,7 +205,7 @@ resource "google_bigquery_table" "cost_attribution" {
   dataset_id  = google_bigquery_dataset.costs.dataset_id
   table_id    = "cost_attribution"
   description = "Cost allocation by team and service"
-  
+
   schema = jsonencode([
     {
       name        = "date"
@@ -277,7 +277,7 @@ resource "google_monitoring_dashboard" "cost_dashboard" {
 
 ### 2.2 Commitment-Based Discounts Automation
 
-**Current State**: Manual RIs/CUDs management  
+**Current State**: Manual RIs/CUDs management
 **Enhancement**: Automated analysis and purchasing recommendations
 
 ```python
@@ -289,12 +289,12 @@ from google.cloud import bigquery
 
 def analyze_commitments(project_id, lookback_days=90):
     """Analyze usage patterns and recommend commitments"""
-    
+
     bq = bigquery.Client()
-    
+
     # Query usage patterns
     query = f"""
-    SELECT 
+    SELECT
       service.description as service,
       resource.labels.region as region,
       SUM(usage.amount) as total_usage,
@@ -306,9 +306,9 @@ def analyze_commitments(project_id, lookback_days=90):
     GROUP BY 1, 2
     ORDER BY total_cost DESC
     """
-    
+
     df = bq.query(query).to_dataframe()
-    
+
     # Recommend commitments
     recommendations = []
     for _, row in df.iterrows():
@@ -316,7 +316,7 @@ def analyze_commitments(project_id, lookback_days=90):
             annual_cost = row['total_cost'] * 365 / lookback_days
             discount = 0.25 if row['service'] == 'Compute Engine' else 0.20
             savings = annual_cost * discount
-            
+
             recommendations.append({
                 'service': row['service'],
                 'region': row['region'],
@@ -325,7 +325,7 @@ def analyze_commitments(project_id, lookback_days=90):
                 'discount_percent': discount * 100,
                 'confidence': 'high' if row['days_used'] == lookback_days else 'medium'
             })
-    
+
     return pd.DataFrame(recommendations).sort_values('potential_savings', ascending=False)
 
 # Generate report
@@ -349,7 +349,7 @@ if __name__ == "__main__":
 
 ### 3.1 Self-Service Infrastructure Templates
 
-**Current State**: Manual Terraform layer setup  
+**Current State**: Manual Terraform layer setup
 **Enhancement**: Guided templates via service catalog
 
 ```hcl
@@ -371,42 +371,42 @@ variable "cluster_config" {
 resource "google_container_cluster" "cluster" {
   name     = var.cluster_config.name
   location = var.cluster_config.region
-  
+
   # Sensible defaults for security
   initial_node_count       = var.cluster_config.node_count
   remove_default_node_pool = true
-  
+
   network    = google_compute_network.vpc.name
   subnetwork = google_compute_subnetwork.subnet.name
-  
+
   # Network policy for zero-trust
   network_policy {
     enabled  = true
     provider = "PROVIDER_UNSPECIFIED"
   }
-  
+
   # Workload identity for Pod-to-GCP auth
   workload_identity_config {
     workload_pool = "${var.project_id}.svc.id.goog"
   }
-  
+
   # Binary authorization enforcement
   binary_authorization {
     evaluation_mode = var.cluster_config.enable_binary_auth ? "PROJECT_SINGLETON_POLICY_ENFORCE" : "DISABLED"
   }
-  
+
   # Security defaults
   master_auth {
     client_certificate_config {
       issue_client_certificate = false
     }
   }
-  
+
   ip_allocation_policy {
     cluster_secondary_range_name  = "pods"
     services_secondary_range_name = "services"
   }
-  
+
   maintenance_policy {
     daily_maintenance_window {
       start_time = "03:00"
@@ -420,29 +420,29 @@ resource "google_container_node_pool" "primary" {
   cluster    = google_container_cluster.cluster.name
   location   = var.cluster_config.region
   node_count = var.cluster_config.node_count
-  
+
   autoscaling {
     min_node_count = 1
     max_node_count = 10
   }
-  
+
   node_config {
     machine_type = var.cluster_config.machine_type
-    
+
     # Security hardening
     service_account = google_service_account.gke_nodes.email
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
-    
+
     # Use preemptible for cost savings
     preemptible = true
-    
+
     # Security patches
     metadata = {
       disable-legacy-endpoints = "true"
     }
-    
+
     labels = {
       managed_by = "terraform"
       tier       = "primary"
@@ -460,7 +460,7 @@ output "cluster_endpoint" {
 # In your project's main.tf
 module "gke_cluster" {
   source = "../../modules/templates/gke-cluster"
-  
+
   cluster_config = {
     name               = "prod-api-cluster"
     region             = "us-central1"
@@ -469,7 +469,7 @@ module "gke_cluster" {
     enable_gce_pd      = true
     enable_binary_auth = true
   }
-  
+
   project_id = var.project_id
 }
 ```
@@ -485,7 +485,7 @@ module "gke_cluster" {
 
 ### 3.2 Interactive Onboarding CLI Tool
 
-**Current State**: Manual documentation following  
+**Current State**: Manual documentation following
 **Enhancement**: Interactive CLI guide with validation
 
 ```bash
@@ -601,7 +601,7 @@ echo "3. Check status: ./run.sh status"
 
 ### 4.1 SLO/SLI Framework
 
-**Current State**: Basic uptime monitoring  
+**Current State**: Basic uptime monitoring
 **Enhancement**: Structured SLO tracking with error budgets
 
 ```hcl
@@ -612,7 +612,7 @@ resource "google_monitoring_slo" "api_availability" {
   display_name       = "Portal API Availability"
   goal               = 0.9995  # 99.95% SLO
   rolling_period_days = 30
-  
+
   service_level_indicator {
     request_based_sli {
       good_filter = "metric.type=\"serviceruntime.googleapis.com/api/consumer/quota_used_count\" AND resource.service=\"portal-backend.run.app\" AND metric.response_code_class=\"2xx\""
@@ -625,10 +625,10 @@ resource "google_monitoring_slo" "api_availability" {
 resource "google_monitoring_alert_policy" "error_budget_burn" {
   display_name = "Error Budget Burn Rate (API)"
   combiner     = "OR"
-  
+
   conditions {
     display_name = "Burn rate > 1 (30-day window)"
-    
+
     condition_threshold {
       filter          = "resource.type=\"api\" AND metric.type=\"serviceruntime.googleapis.com/api/error_count\""
       comparison      = "COMPARISON_GT"
@@ -636,7 +636,7 @@ resource "google_monitoring_alert_policy" "error_budget_burn" {
       duration        = "300s"
     }
   }
-  
+
   notification_channels = [google_monitoring_notification_channel.pagerduty.id]
 }
 
@@ -698,7 +698,7 @@ resource "google_monitoring_dashboard" "slo_dashboard" {
 
 ### 4.2 Automated Incident Remediation
 
-**Current State**: Manual runbook execution  
+**Current State**: Manual runbook execution
 **Enhancement**: Self-healing automation for common issues
 
 ```python
@@ -714,12 +714,12 @@ logger = logging.getLogger(__name__)
 @functions_framework.cloud_event
 def auto_remediate(cloud_event):
     """Automatically remediate common infrastructure issues"""
-    
+
     pubsub_message = cloud_event.data["message"]["data"]
     alert_data = json.loads(pubsub_message)
-    
+
     alert_policy = alert_data.get("incident", {}).get("policy_name")
-    
+
     # Route to appropriate handler
     if "high-cpu" in alert_policy:
         handle_high_cpu(alert_data)
@@ -733,20 +733,20 @@ def auto_remediate(cloud_event):
 def handle_high_cpu(alert_data):
     """Auto-scale on high CPU"""
     instance_group = alert_data.get("resource", {}).get("instance_group")
-    
+
     if instance_group:
         compute = compute_v1.InstanceGroupManagersClient()
-        
+
         # Get current target size
         response = compute.get(
             project=alert_data["project"],
             zone=alert_data["zone"],
             instance_group_manager=instance_group
         )
-        
+
         current_size = response.target_size
         new_size = min(current_size + 2, response.auto_scaling_policy.max_num_replicas)
-        
+
         # Update target size
         compute.resize(
             project=alert_data["project"],
@@ -754,18 +754,18 @@ def handle_high_cpu(alert_data):
             instance_group_manager=instance_group,
             size=new_size
         )
-        
+
         logger.info(f"Scaled {instance_group} from {current_size} to {new_size}")
 
 def handle_pod_crash(alert_data):
     """Remediate pod crashes"""
     namespace = alert_data.get("resource", {}).get("namespace")
     pod = alert_data.get("resource", {}).get("pod")
-    
+
     # Get pod details
     kubectl_cmd = f"kubectl describe pod {pod} -n {namespace}"
     output = subprocess.run(kubectl_cmd, shell=True, capture_output=True, text=True)
-    
+
     # Check for common issues
     if "OOMKilled" in output.stdout:
         logger.warning(f"Pod {pod} OOM killed - increasing memory limit")
@@ -788,7 +788,7 @@ def handle_pod_crash(alert_data):
 
 ### 5.1 Multi-Region Architecture Pattern
 
-**Current State**: Single-region deployment  
+**Current State**: Single-region deployment
 **Enhancement**: Active-active multi-region with cross-region replication
 
 ```hcl
@@ -798,10 +798,10 @@ def handle_pod_crash(alert_data):
 resource "google_compute_global_forwarding_rule" "https" {
   name       = "portal-https-lb"
   ip_version = "IPV4"
-  
+
   load_balancing_scheme = "EXTERNAL"
   target               = google_compute_target_https_proxy.default.id
-  
+
   ip_address = google_compute_global_address.https.id
 }
 
@@ -815,13 +815,13 @@ resource "google_compute_backend_service" "api_us_central" {
   load_balancing_scheme          = "EXTERNAL"
   session_affinity                = "CLIENT_IP"
   affinity_cookie_ttl_sec        = 600
-  
+
   backend {
     group           = google_compute_instance_group.api_us_central.id
     balancing_mode  = "RATE"
     max_rate_per_instance = 1000
   }
-  
+
   depends_on = [google_compute_instance_group.api_us_central]
 }
 
@@ -832,7 +832,7 @@ resource "google_compute_backend_service" "api_europe_west" {
   timeout_sec              = 10
   health_checks            = [google_compute_health_check.api_eu.id]
   load_balancing_scheme    = "EXTERNAL"
-  
+
   backend {
     group          = google_compute_instance_group.api_europe.id
     balancing_mode = "RATE"
@@ -844,16 +844,16 @@ resource "google_compute_backend_service" "api_europe_west" {
 resource "google_compute_url_map" "default" {
   name            = "portal-https-lb-map"
   default_service = google_compute_backend_service.api_us_central.id
-  
+
   host_rule {
     hosts        = ["portal-eu.example.com"]
     path_matcher = "europe"
   }
-  
+
   path_matcher {
     name            = "europe"
     default_service = google_compute_backend_service.api_europe_west.id
-    
+
     path_rule {
       paths   = ["/*"]
       service = google_compute_backend_service.api_europe_west.id
@@ -866,7 +866,7 @@ resource "google_sql_database_instance" "replica_europe" {
   name               = "portal-db-eu-replica"
   database_version   = "POSTGRES_15"
   region             = "europe-west1"
-  
+
   master_instance_name = google_sql_database_instance.primary.name
 }
 ```
@@ -882,7 +882,7 @@ resource "google_sql_database_instance" "replica_europe" {
 
 ### 5.2 Disaster Recovery as Code
 
-**Current State**: Manual backup & recovery procedures  
+**Current State**: Manual backup & recovery procedures
 **Enhancement**: Automated, tested DR with terraform
 
 ```hcl
@@ -891,14 +891,14 @@ resource "google_sql_database_instance" "replica_europe" {
 # Automated daily snapshots
 resource "google_compute_snapshot_schedule" "daily" {
   name = "portal-daily-snapshots"
-  
+
   schedule {
     daily_schedule {
       days_in_cycle = 1
       start_time    = "03:00"  # 3 AM UTC
     }
   }
-  
+
   snapshot_properties {
     labels = {
       dr_plan = "daily"
@@ -906,7 +906,7 @@ resource "google_compute_snapshot_schedule" "daily" {
     }
     storage_locations = ["us"]
   }
-  
+
   source_disks = [
     google_compute_disk.database.id,
     google_compute_disk.application.id
@@ -918,7 +918,7 @@ resource "google_sql_backup_run" "backup" {
   instance = google_sql_database_instance.primary.name
   description = "Daily backup for DR"
   backup_kind = "SNAPSHOT"  # vs. AUTOMATED
-  
+
   depends_on = [google_sql_database_instance.primary]
 }
 
@@ -930,11 +930,11 @@ resource "google_scheduler_job" "dr_test" {
   time_zone        = "UTC"
   attempt_deadline = "320s"
   region           = "us-central1"
-  
+
   http_target {
     http_method = "POST"
     uri         = "https://cloudscheduler.googleapis.com/v1/projects/${var.project_id}/locations/us-central1/jobs/portal-dr-test/pause"
-    
+
     oidc_token {
       service_account_email = google_service_account.dr_automation.email
     }
@@ -946,7 +946,7 @@ resource "null_resource" "dr_recovery_runbook" {
   provisioner "file" {
     source      = "${path.module}/dr-recovery.sh"
     destination = "/tmp/dr-recovery.sh"
-    
+
     connection {
       type = "ssh"
       user = "ubuntu"
@@ -969,7 +969,7 @@ resource "null_resource" "dr_recovery_runbook" {
 
 ### 6.1 Automated Compliance Reporting
 
-**Current State**: Manual compliance documentation  
+**Current State**: Manual compliance documentation
 **Enhancement**: Automated FedRAMP/SOC 2 evidence collection
 
 ```python
@@ -984,38 +984,38 @@ import json
 @functions_framework.http
 def collect_compliance_evidence(request):
     """Automatically collect evidence for compliance reports"""
-    
+
     logger = cloud_logging.Client().logger("compliance-evidence")
-    
+
     evidence = {
         "timestamp": datetime.utcnow().isoformat(),
         "controls": {}
     }
-    
+
     # AC-1: Access Control Policy
     evidence["controls"]["AC-1"] = collect_ac1_evidence()
-    
+
     # AC-2: User Registration
     evidence["controls"]["AC-2"] = collect_ac2_evidence()
-    
+
     # AC-3: Access Enforcement
     evidence["controls"]["AC-3"] = collect_ac3_evidence()
-    
+
     # AU-2: Audit Logging
     evidence["controls"]["AU-2"] = collect_au2_evidence()
-    
+
     # SC-7: Boundary Protection
     evidence["controls"]["SC-7"] = collect_sc7_evidence()
-    
+
     # Store in secure location
     store_evidence(evidence)
-    
+
     logger.log_struct({
         "severity": "INFO",
         "message": "Compliance evidence collection complete",
         "controls_collected": len(evidence["controls"])
     })
-    
+
     return {"status": "success", "controls": len(evidence["controls"])}
 
 def collect_ac2_evidence():
@@ -1023,7 +1023,7 @@ def collect_ac2_evidence():
     logs = cloud_logging.Client().list_entries(
         filter_="resource.type=cloud_function AND jsonPayload.event_type=user_created"
     )
-    
+
     return {
         "control": "AC-2",
         "title": "User Registration",
@@ -1050,7 +1050,7 @@ def collect_au2_evidence():
     WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
     ORDER BY timestamp DESC
     """
-    
+
     # Return summary statistics
     return {
         "control": "AU-2",
@@ -1121,7 +1121,7 @@ def collect_au2_evidence():
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2026-01-19  
-**Owner**: Platform Engineering  
+**Document Version**: 1.0
+**Last Updated**: 2026-01-19
+**Owner**: Platform Engineering
 **Review Cycle**: Quarterly

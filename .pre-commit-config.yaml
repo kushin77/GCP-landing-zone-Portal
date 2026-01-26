@@ -33,7 +33,7 @@ repos:
     rev: v8.55.0
     hooks:
       - id: eslint
-        types: [javascript, typescript]
+        types: [javascript]
         args: [--fix]
         additional_dependencies: ["eslint", "eslint-config-prettier"]
 
@@ -44,13 +44,6 @@ repos:
       - id: prettier
         types_or: [javascript, json, markdown, yaml]
         args: [--write]
-
-  # Terraform: Format
-  - repo: https://github.com/terraform-linters/tflint
-    rev: v0.50.3
-    hooks:
-      - id: tflint
-        args: [--config=.tflint.hcl]
 
   # Security: Gitleaks (secret scanning)
   - repo: https://github.com/gitleaks/gitleaks

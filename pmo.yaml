@@ -1,10 +1,13 @@
 # Project Management Office (PMO) Metadata
+# Mandates enforced by Landing Zone Hub governance
 
 project:
   name: "Landing Zone Portal"
   short_name: "portal"
   description: "Self-service control plane for Landing Zone infrastructure"
   repository: "https://github.com/kushin77/GCP-landing-zone-Portal"
+  hub_repository: "https://github.com/kushin77/GCP-landing-zone"
+  role: "spoke"
 
 ownership:
   owner: "Platform Engineering"
@@ -12,6 +15,11 @@ ownership:
   backup_owner: "[Backup Owner Name]"
   team_slack: "#platform-engineering"
   slack_alerts: "#portal-alerts"
+  escalation:
+    p1_contact: "platform-eng@example.com"
+    p1_escalation: "CTO"
+    p2_contact: "platform-eng@example.com"
+    p2_escalation: "VP Engineering"
 
 governance:
   classification: "Internal Use"
@@ -25,6 +33,174 @@ governance:
     - AU-2 # Audit Events
     - SI-4 # Information System Monitoring
   fedramp_applicable: true
+
+pmo_mandates:
+  phase_1_structural_cleanup:
+    description: "Enforce repository hygiene and size constraints"
+    enforced: true
+    requirements:
+      - repo_size_max_kb: 500
+      - no_bak_files: true
+      - no_orphaned_artifacts: true
+      - no_commented_code_bloat: true
+      - dependencies_pinned: true
+    validation_script: "scripts/validation/validate-repo.sh"
+
+  phase_2_documentation:
+    description: "Mandate canonical documentation files"
+    enforced: true
+    requirements:
+      - api_md: "API.md"
+      - architecture_md: "ARCHITECTURE.md"
+      - deployment_md: "DEPLOYMENT.md"
+      - runbooks_md: "RUNBOOKS.md"
+    validation_commands:
+      - "test -f API.md && test -f ARCHITECTURE.md && test -f DEPLOYMENT.md && test -f RUNBOOKS.md"
+
+  phase_3_security:
+    description: "Enforce security scanning and code quality"
+    enforced: true
+    requirements:
+      - gitleaks_required: true
+      - gitleaks_max_findings: 0
+      - detect_private_keys: true
+      - pre_commit_hooks: true
+      - commit_signing: "gpg"
+      - commit_signing_percentage: 100
+    validation_script: "scripts/security/security-check.sh"
+
+  phase_4_folder_depth:
+    description: "Enforce 5-layer Terraform folder structure"
+    enforced: true
+    requirements:
+      - terraform_layers:
+          - "01-foundation"
+          - "02-network"
+          - "03-security"
+          - "04-workloads"
+          - "05-observability"
+      - terraform_modules: "modules"
+      - scripts_categories:
+          - "automation"
+          - "bootstrap"
+          - "deployment"
+          - "lib"
+          - "maintenance"
+          - "monitoring"
+          - "security"
+          - "validation"
+    validation_script: "scripts/validation/folder-hierarchy-validation.sh"
+
+  phase_5_governance:
+    description: "Enforce governance tracking and evidence"
+    enforced: true
+    requirements:
+      - pmo_yaml_required: true
+      - conventional_commits: true
+      - session_logging: true
+      - github_issue_tracking: true
+    validation_commands:
+      - "test -f pmo.yaml"
+      - "grep -q 'type:' .pre-commit-config.yaml"
+
+enforcement_gates:
+  onboarding_blocked_on_failure: true
+  gates:
+    - gate_1:
+        name: "Structural Cleanup"
+        phase: 1
+        severity: "Medium"
+        blocks_onboarding: false
+        validation: "scripts/validation/validate-repo.sh"
+
+    - gate_2:
+        name: "Documentation Consolidation"
+        phase: 2
+        severity: "Medium"
+        blocks_onboarding: true
+        validation: "All 4 canonical docs must exist"
+
+    - gate_3:
+        name: "Security & GPG Signing"
+        phase: 3
+        severity: "High"
+        blocks_onboarding: true
+        validation: "100% of commits signed with GPG"
+
+    - gate_4:
+        name: "5-Layer Folder Depth"
+        phase: 4
+        severity: "High"
+        blocks_onboarding: true
+        validation: "scripts/validation/folder-hierarchy-validation.sh"
+
+    - gate_5:
+        name: "Governance & Evidence"
+        phase: 5
+        severity: "Medium"
+        blocks_onboarding: false
+        validation: "pmo.yaml present with all required fields"
+
+pre_commit_hooks:
+  hub_enforced_rules:
+    - id: "conventional-commits"
+      description: "Enforce conventional commit messages"
+      enforced: true
+
+    - id: "gitleaks"
+      description: "Secret detection and prevention"
+      enforced: true
+      max_findings: 0
+
+    - id: "detect-private-key"
+      description: "Detect private key credentials"
+      enforced: true
+
+    - id: "end-of-file-fixer"
+      description: "Fix files that have no newline at EOF"
+      enforced: true
+
+    - id: "trailing-whitespace"
+      description: "Trim trailing whitespace"
+      enforced: true
+
+    - id: "black"
+      description: "Python code formatting"
+      enforced: true
+      language: "python"
+
+    - id: "isort"
+      description: "Python import sorting"
+      enforced: true
+      language: "python"
+
+    - id: "flake8"
+      description: "Python linting"
+      enforced: true
+      language: "python"
+
+    - id: "eslint"
+      description: "JavaScript/TypeScript linting"
+      enforced: true
+      language: "javascript"
+
+    - id: "prettier"
+      description: "Code formatting (JS/TS/JSON)"
+      enforced: true
+      language: "javascript"
+
+    - id: "tflint"
+      description: "Terraform linting"
+      enforced: true
+      language: "terraform"
+
+exemption_policy:
+  description: "Process for requesting waivers from PMO mandates"
+  approval_required: true
+  approval_level: "CTO"
+  exemption_template: "docs/governance/templates/EXEMPTION_REQUEST_TEMPLATE.md"
+  max_exemption_duration_days: 90
+  exemptions_tracked_in: "docs/governance/EXEMPTION_LOG.md"
 
 deployment:
   environments:

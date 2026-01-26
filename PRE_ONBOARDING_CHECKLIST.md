@@ -2,8 +2,8 @@
 
 This checklist tracks completion of landing zone enforcement requirements before the Portal can be onboarded as a spoke to the GCP Landing Zone hub.
 
-**Status**: � **READY FOR ONBOARDING** (9/9 complete)  
-**Target Completion**: 2026-01-22  
+**Status**: � **READY FOR ONBOARDING** (9/9 complete)
+**Target Completion**: 2026-01-22
 **Owner**: Platform Engineering Team
 
 ---
@@ -240,6 +240,6 @@ terraform validate
 
 ---
 
-**Last Updated**: 2026-01-19  
-**Next Review**: 2026-01-20  
+**Last Updated**: 2026-01-19
+**Next Review**: 2026-01-20
 **Owner**: Platform Engineering Team

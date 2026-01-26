@@ -250,7 +250,7 @@ class PortalClient:
         self.token = None
         self.token_expires = None
         self.login(email, password)
-    
+
     def login(self, email, password):
         resp = self.session.post(
             f"{self.base_url}/api/v1/auth/login",
@@ -260,7 +260,7 @@ class PortalClient:
         self.token = data['token']
         self.token_expires = datetime.now() + timedelta(seconds=data['expires_in'])
         self.session.headers['Authorization'] = f"Bearer {self.token}"
-    
+
     def get_projects(self):
         return self.session.get(f"{self.base_url}/api/v1/projects").json()
 
@@ -295,6 +295,6 @@ curl -s https://portal.example.com/api/v1/health | jq '.'
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: 2026-01-19  
+**Version**: 1.0
+**Last Updated**: 2026-01-19
 **Status**: Production
