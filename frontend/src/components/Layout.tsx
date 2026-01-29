@@ -20,6 +20,7 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Portal', href: '/portal', icon: CubeIcon },
   { name: 'Projects', href: '/projects', icon: CubeIcon },
   { name: 'Costs', href: '/costs', icon: CurrencyDollarIcon },
   { name: 'Compliance', href: '/compliance', icon: ShieldCheckIcon },

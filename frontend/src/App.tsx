@@ -10,6 +10,10 @@ import Costs from './pages/Costs';
 import Compliance from './pages/Compliance';
 import Workflows from './pages/Workflows';
 import AIAssistant from './pages/AIAssistant';
+import PortalIndex from './pages/PortalIndex';
+import PortalLZ from './pages/PortalLZ';
+import PortalGit from './pages/PortalGit';
+import PortalMonitoring from './pages/PortalMonitoring';
 import Layout from './components/Layout';
 import { ErrorBoundary, PageErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
@@ -84,6 +88,30 @@ const aiRoute = createRoute({
   component: AIAssistant,
 });
 
+const portalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/portal',
+  component: PortalIndex,
+});
+
+const portalLZRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/portal/lz',
+  component: PortalLZ,
+});
+
+const portalGitRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/portal/git',
+  component: PortalGit,
+});
+
+const portalMonitoringRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/portal/monitoring',
+  component: PortalMonitoring,
+});
+
 // Create router
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -92,6 +120,10 @@ const routeTree = rootRoute.addChildren([
   complianceRoute,
   workflowsRoute,
   aiRoute,
+  portalRoute,
+  portalLZRoute,
+  portalGitRoute,
+  portalMonitoringRoute,
 ]);
 
 const router = createRouter({ routeTree });
