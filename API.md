@@ -35,7 +35,19 @@ The GCP Landing Zone Portal provides a unified control plane for infrastructure,
 - **Status Codes**: `200` (success), `401` (invalid credentials), `429` (rate limited)
 
 #### Logout
-- **Method**: `POST /logout`
+**Status Codes**: `200` (success), `401` (invalid credentials), `429` (rate limited)
+
+> NOTE: Never store real credentials or tokens in repository files. The example above contained a real token in earlier commits and has been redacted. All runtime secrets must be stored in a secrets manager (e.g., GCP Secret Manager) and referenced at runtime. Example:
+
+```
+# Store token in Secret Manager:
+gcloud secrets create portal-auth-token --replication-policy="automatic" --data-file=-
+
+# Read in runtime (example):
+TOKEN=$(gcloud secrets versions access latest --secret="portal-auth-token" --project="$PROJECT_ID")
+
+# In code/config: read from environment variable populated by the platform or runtime.
+```
 - **Description**: Revoke JWT token
 - **Headers**: `Authorization: Bearer <token>`
 - **Response**: `204 No Content`
