@@ -139,6 +139,11 @@ steps:
         terraform fmt -check -recursive
     waitFor: ['-']
 
+  - name: 'instrumenta/conftest'
+    id: 'terraform-policy-check'
+    args: ['test', 'terraform/', '--policy', 'policies/terraform']
+    waitFor: ['terraform-validate']
+
   # ==========================================================================
   # Stage 4b: Terraform Plan Workloads (/lz LB + IAP)
   # ==========================================================================
@@ -417,4 +422,3 @@ tags:
   - 'gcp-cloud'
   - 'portal'
   - 'ci-cd'
-
