@@ -10,7 +10,6 @@ from typing import List
 
 import requests
 
-
 ISSUE_TEMPLATE = """
 Backfill: Onboard endpoint `{name}`
 
@@ -54,9 +53,15 @@ def create_issue(repo: str, title: str, body: str, token: str):
 def main(argv: List[str]):
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", required=True, help="Discovery endpoint or JSON file path")
-    parser.add_argument("--repo", default="kushin77/GCP-landing-zone-Portal", help="GitHub repo to open issues in")
-    parser.add_argument("--dry-run", action="store_true", default=True, help="Show payloads but don't create issues")
-    parser.add_argument("--create", action="store_true", help="Create issues (requires GITHUB_TOKEN)")
+    parser.add_argument(
+        "--repo", default="kushin77/GCP-landing-zone-Portal", help="GitHub repo to open issues in"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", default=True, help="Show payloads but don't create issues"
+    )
+    parser.add_argument(
+        "--create", action="store_true", help="Create issues (requires GITHUB_TOKEN)"
+    )
     args = parser.parse_args(argv)
 
     if args.source.startswith("http"):
