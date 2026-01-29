@@ -10,21 +10,19 @@ Enterprise-grade caching with:
 - Circuit breaker for resilience
 """
 
-import json
+import asyncio
+import gzip
 import hashlib
 import logging
-import asyncio
-from datetime import timedelta
-from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, ParamSpec
-from enum import Enum
-import gzip
 import pickle
+from enum import Enum
+from functools import wraps
+from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
 try:
     import redis.asyncio as aioredis
     from redis.asyncio.connection import ConnectionPool
-    from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
+
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
@@ -35,12 +33,13 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 # Type variables for generic functions
-P = ParamSpec('P')
-R = TypeVar('R')
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class CacheNamespace(str, Enum):
     """Cache key namespaces for organization"""
+
     COSTS = "costs"
     COMPLIANCE = "compliance"
     PROJECTS = "projects"
@@ -53,6 +52,7 @@ class CacheNamespace(str, Enum):
 
 class CacheConfig(BaseModel):
     """Cache configuration"""
+
     redis_url: str = "redis://localhost:6379/0"
     default_ttl: int = 300  # 5 minutes
     max_connections: int = 50
@@ -85,6 +85,7 @@ class CircuitBreaker:
             if self.is_open:
                 if self.last_failure_time:
                     import time
+
                     elapsed = time.time() - self.last_failure_time
                     if elapsed >= self.timeout:
                         # Try to close circuit
@@ -99,21 +100,21 @@ class CircuitBreaker:
             async with self._lock:
                 self.failures = 0
             return result
-        except Exception as e:
+        except Exception:
             async with self._lock:
                 self.failures += 1
                 import time
+
                 self.last_failure_time = time.time()
                 if self.failures >= self.threshold:
                     self.is_open = True
-                    logger.warning(
-                        f"Circuit breaker opened after {self.failures} failures"
-                    )
+                    logger.warning(f"Circuit breaker opened after {self.failures} failures")
             raise
 
 
 class CacheUnavailableError(Exception):
     """Raised when cache is unavailable"""
+
     pass
 
 
@@ -136,7 +137,7 @@ class CacheService:
         self._client: Optional[Any] = None
         self._circuit_breaker = CircuitBreaker(
             threshold=self.config.circuit_breaker_threshold,
-            timeout=self.config.circuit_breaker_timeout
+            timeout=self.config.circuit_breaker_timeout,
         )
         self._connected = False
 
@@ -188,9 +189,9 @@ class CacheService:
             compressed = gzip.compress(data)
             # Only use compression if it actually reduces size
             if len(compressed) < len(data):
-                return b'\x01' + compressed
+                return b"\x01" + compressed
 
-        return b'\x00' + data
+        return b"\x00" + data
 
     def _deserialize(self, data: bytes) -> Any:
         """Deserialize value with optional decompression"""
@@ -205,17 +206,13 @@ class CacheService:
 
         return pickle.loads(payload)
 
-    async def get(
-        self,
-        namespace: CacheNamespace,
-        key: str,
-        default: Any = None
-    ) -> Any:
+    async def get(self, namespace: CacheNamespace, key: str, default: Any = None) -> Any:
         """Get value from cache"""
         if not self._connected:
             return default
 
         try:
+
             async def _get():
                 cache_key = self._make_key(namespace, key)
                 data = await self._client.get(cache_key)
@@ -232,17 +229,14 @@ class CacheService:
             return default
 
     async def set(
-        self,
-        namespace: CacheNamespace,
-        key: str,
-        value: Any,
-        ttl: Optional[int] = None
+        self, namespace: CacheNamespace, key: str, value: Any, ttl: Optional[int] = None
     ) -> bool:
         """Set value in cache"""
         if not self._connected:
             return False
 
         try:
+
             async def _set():
                 cache_key = self._make_key(namespace, key)
                 data = self._serialize(value)
@@ -264,6 +258,7 @@ class CacheService:
             return False
 
         try:
+
             async def _delete():
                 cache_key = self._make_key(namespace, key)
                 await self._client.delete(cache_key)
@@ -281,6 +276,7 @@ class CacheService:
             return 0
 
         try:
+
             async def _delete_pattern():
                 full_pattern = self._make_key(namespace, pattern)
                 cursor = 0
@@ -288,9 +284,7 @@ class CacheService:
 
                 while True:
                     cursor, keys = await self._client.scan(
-                        cursor=cursor,
-                        match=full_pattern,
-                        count=100
+                        cursor=cursor, match=full_pattern, count=100
                     )
                     if keys:
                         deleted += await self._client.delete(*keys)
@@ -311,13 +305,14 @@ class CacheService:
             return False
 
         try:
+
             async def _exists():
                 cache_key = self._make_key(namespace, key)
                 return await self._client.exists(cache_key) > 0
 
             return await self._circuit_breaker.call(_exists)
 
-        except Exception as e:
+        except Exception:
             return False
 
     async def get_or_set(
@@ -325,7 +320,7 @@ class CacheService:
         namespace: CacheNamespace,
         key: str,
         factory: Callable[[], Any],
-        ttl: Optional[int] = None
+        ttl: Optional[int] = None,
     ) -> Any:
         """Get from cache, or compute and cache if missing"""
         value = await self.get(namespace, key)
@@ -350,7 +345,7 @@ class CacheService:
             return {
                 "status": "disconnected",
                 "available": False,
-                "circuit_breaker_open": self._circuit_breaker.is_open
+                "circuit_breaker_open": self._circuit_breaker.is_open,
             }
 
         try:
@@ -373,14 +368,14 @@ class CacheService:
                 "status": "error",
                 "available": False,
                 "error": str(e),
-                "circuit_breaker_open": self._circuit_breaker.is_open
+                "circuit_breaker_open": self._circuit_breaker.is_open,
             }
 
 
 def cached(
     namespace: CacheNamespace,
     ttl: Optional[int] = None,
-    key_builder: Optional[Callable[..., str]] = None
+    key_builder: Optional[Callable[..., str]] = None,
 ):
     """
     Decorator for caching function results.
@@ -390,13 +385,14 @@ def cached(
         async def get_project_costs(project_id: str, days: int):
             ...
     """
+
     def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> R:
             # Get cache service from first arg if it has one
             cache = None
-            if args and hasattr(args[0], 'cache'):
-                cache = getattr(args[0], 'cache')
+            if args and hasattr(args[0], "cache"):
+                cache = getattr(args[0], "cache")
 
             if cache is None or not isinstance(cache, CacheService):
                 # No cache available, just call function
@@ -430,6 +426,7 @@ def cached(
             return result
 
         return wrapper
+
     return decorator
 
 
@@ -443,6 +440,7 @@ async def get_cache_service() -> CacheService:
 
     if _cache_service is None:
         import os
+
         config = CacheConfig(
             redis_url=os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
             default_ttl=int(os.environ.get("CACHE_DEFAULT_TTL", "300")),

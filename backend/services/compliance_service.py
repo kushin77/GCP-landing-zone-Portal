@@ -2,9 +2,10 @@
 Compliance and security posture service.
 """
 import logging
-from typing import List, Dict, Any
 from datetime import datetime
-from models.schemas import ComplianceControl, ComplianceStatus, ComplianceFramework
+from typing import Dict, List
+
+from models.schemas import ComplianceControl, ComplianceFramework, ComplianceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -17,47 +18,47 @@ class ComplianceService:
         "AC-1": {
             "name": "Access Control Policy and Procedures",
             "severity": "high",
-            "description": "Organization develops, documents, and disseminates access control policy"
+            "description": "Organization develops, documents, and disseminates access control policy",
         },
         "AC-2": {
             "name": "Account Management",
             "severity": "high",
-            "description": "Organization manages information system accounts"
+            "description": "Organization manages information system accounts",
         },
         "AC-3": {
             "name": "Access Enforcement",
             "severity": "critical",
-            "description": "Information system enforces approved authorizations"
+            "description": "Information system enforces approved authorizations",
         },
         "AU-2": {
             "name": "Audit Events",
             "severity": "high",
-            "description": "Organization determines that the information system is capable of auditing events"
+            "description": "Organization determines that the information system is capable of auditing events",
         },
         "AU-3": {
             "name": "Content of Audit Records",
             "severity": "medium",
-            "description": "Information system generates audit records containing information"
+            "description": "Information system generates audit records containing information",
         },
         "CM-2": {
             "name": "Baseline Configuration",
             "severity": "medium",
-            "description": "Organization develops, documents, and maintains baseline configuration"
+            "description": "Organization develops, documents, and maintains baseline configuration",
         },
         "IA-2": {
             "name": "Identification and Authentication",
             "severity": "critical",
-            "description": "Information system uniquely identifies and authenticates users"
+            "description": "Information system uniquely identifies and authenticates users",
         },
         "SC-7": {
             "name": "Boundary Protection",
             "severity": "high",
-            "description": "Information system monitors and controls communications at external boundaries"
+            "description": "Information system monitors and controls communications at external boundaries",
         },
         "SI-2": {
             "name": "Flaw Remediation",
             "severity": "high",
-            "description": "Organization identifies, reports, and corrects information system flaws"
+            "description": "Organization identifies, reports, and corrects information system flaws",
         },
     }
 
@@ -90,7 +91,7 @@ class ComplianceService:
             controls_compliant=compliant,
             controls_non_compliant=non_compliant,
             last_assessed=datetime.utcnow(),
-            findings=controls
+            findings=controls,
         )
 
     async def _check_nist_compliance(self) -> List[ComplianceControl]:
@@ -99,62 +100,72 @@ class ComplianceService:
 
         # Simulate compliance checks - in production, these would query actual resources
         # AC-1: Access Control Policy
-        controls.append(ComplianceControl(
-            id="AC-1",
-            name=self.NIST_CONTROLS["AC-1"]["name"],
-            framework=ComplianceFramework.NIST_800_53,
-            status="compliant",
-            severity=self.NIST_CONTROLS["AC-1"]["severity"],
-            description=self.NIST_CONTROLS["AC-1"]["description"],
-            remediation=None
-        ))
+        controls.append(
+            ComplianceControl(
+                id="AC-1",
+                name=self.NIST_CONTROLS["AC-1"]["name"],
+                framework=ComplianceFramework.NIST_800_53,
+                status="compliant",
+                severity=self.NIST_CONTROLS["AC-1"]["severity"],
+                description=self.NIST_CONTROLS["AC-1"]["description"],
+                remediation=None,
+            )
+        )
 
         # AC-2: Account Management
-        controls.append(ComplianceControl(
-            id="AC-2",
-            name=self.NIST_CONTROLS["AC-2"]["name"],
-            framework=ComplianceFramework.NIST_800_53,
-            status="compliant",
-            severity=self.NIST_CONTROLS["AC-2"]["severity"],
-            description=self.NIST_CONTROLS["AC-2"]["description"],
-            remediation=None
-        ))
+        controls.append(
+            ComplianceControl(
+                id="AC-2",
+                name=self.NIST_CONTROLS["AC-2"]["name"],
+                framework=ComplianceFramework.NIST_800_53,
+                status="compliant",
+                severity=self.NIST_CONTROLS["AC-2"]["severity"],
+                description=self.NIST_CONTROLS["AC-2"]["description"],
+                remediation=None,
+            )
+        )
 
         # AC-3: Access Enforcement (check for IAM policies)
         iam_status = await self._check_iam_policies()
-        controls.append(ComplianceControl(
-            id="AC-3",
-            name=self.NIST_CONTROLS["AC-3"]["name"],
-            framework=ComplianceFramework.NIST_800_53,
-            status=iam_status["status"],
-            severity=self.NIST_CONTROLS["AC-3"]["severity"],
-            description=self.NIST_CONTROLS["AC-3"]["description"],
-            remediation=iam_status.get("remediation")
-        ))
+        controls.append(
+            ComplianceControl(
+                id="AC-3",
+                name=self.NIST_CONTROLS["AC-3"]["name"],
+                framework=ComplianceFramework.NIST_800_53,
+                status=iam_status["status"],
+                severity=self.NIST_CONTROLS["AC-3"]["severity"],
+                description=self.NIST_CONTROLS["AC-3"]["description"],
+                remediation=iam_status.get("remediation"),
+            )
+        )
 
         # AU-2: Audit Events
         audit_status = await self._check_audit_logs()
-        controls.append(ComplianceControl(
-            id="AU-2",
-            name=self.NIST_CONTROLS["AU-2"]["name"],
-            framework=ComplianceFramework.NIST_800_53,
-            status=audit_status["status"],
-            severity=self.NIST_CONTROLS["AU-2"]["severity"],
-            description=self.NIST_CONTROLS["AU-2"]["description"],
-            remediation=audit_status.get("remediation")
-        ))
+        controls.append(
+            ComplianceControl(
+                id="AU-2",
+                name=self.NIST_CONTROLS["AU-2"]["name"],
+                framework=ComplianceFramework.NIST_800_53,
+                status=audit_status["status"],
+                severity=self.NIST_CONTROLS["AU-2"]["severity"],
+                description=self.NIST_CONTROLS["AU-2"]["description"],
+                remediation=audit_status.get("remediation"),
+            )
+        )
 
         # Add more controls...
         for control_id in ["AU-3", "CM-2", "IA-2", "SC-7", "SI-2"]:
-            controls.append(ComplianceControl(
-                id=control_id,
-                name=self.NIST_CONTROLS[control_id]["name"],
-                framework=ComplianceFramework.NIST_800_53,
-                status="compliant",
-                severity=self.NIST_CONTROLS[control_id]["severity"],
-                description=self.NIST_CONTROLS[control_id]["description"],
-                remediation=None
-            ))
+            controls.append(
+                ComplianceControl(
+                    id=control_id,
+                    name=self.NIST_CONTROLS[control_id]["name"],
+                    framework=ComplianceFramework.NIST_800_53,
+                    status="compliant",
+                    severity=self.NIST_CONTROLS[control_id]["severity"],
+                    description=self.NIST_CONTROLS[control_id]["description"],
+                    remediation=None,
+                )
+            )
 
         return controls
 
@@ -174,25 +185,29 @@ class ComplianceService:
         controls = []
 
         # CIS Benchmarks for GCP
-        controls.append(ComplianceControl(
-            id="CIS-1.1",
-            name="Ensure corporate login credentials are used",
-            framework=ComplianceFramework.CIS,
-            status="compliant",
-            severity="high",
-            description="Use corporate login credentials instead of Gmail accounts",
-            remediation=None
-        ))
+        controls.append(
+            ComplianceControl(
+                id="CIS-1.1",
+                name="Ensure corporate login credentials are used",
+                framework=ComplianceFramework.CIS,
+                status="compliant",
+                severity="high",
+                description="Use corporate login credentials instead of Gmail accounts",
+                remediation=None,
+            )
+        )
 
-        controls.append(ComplianceControl(
-            id="CIS-1.2",
-            name="Ensure that multi-factor authentication is enabled",
-            framework=ComplianceFramework.CIS,
-            status="compliant",
-            severity="critical",
-            description="Enable MFA for all user accounts",
-            remediation=None
-        ))
+        controls.append(
+            ComplianceControl(
+                id="CIS-1.2",
+                name="Ensure that multi-factor authentication is enabled",
+                framework=ComplianceFramework.CIS,
+                status="compliant",
+                severity="critical",
+                description="Enable MFA for all user accounts",
+                remediation=None,
+            )
+        )
 
         # Add more CIS controls as needed
         return controls
@@ -202,16 +217,13 @@ class ComplianceService:
         # In production, this would check actual IAM policies
         return {
             "status": "compliant",
-            "details": "All IAM policies follow principle of least privilege"
+            "details": "All IAM policies follow principle of least privilege",
         }
 
     async def _check_audit_logs(self) -> Dict[str, str]:
         """Check audit logging configuration."""
         # In production, this would verify Cloud Audit Logs configuration
-        return {
-            "status": "compliant",
-            "details": "All required audit logs are enabled"
-        }
+        return {"status": "compliant", "details": "All required audit logs are enabled"}
 
     def _empty_status(self, framework: ComplianceFramework) -> ComplianceStatus:
         """Return empty compliance status."""
@@ -222,7 +234,7 @@ class ComplianceService:
             controls_compliant=0,
             controls_non_compliant=0,
             last_assessed=datetime.utcnow(),
-            findings=[]
+            findings=[],
         )
 
 

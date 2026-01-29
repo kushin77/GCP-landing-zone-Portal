@@ -1,11 +1,9 @@
 """
 Costs API router.
 """
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional
-from datetime import datetime
-from models.schemas import CostSummary, CostBreakdown
-from services.gcp_client import gcp_clients, CostService
+from fastapi import APIRouter, Query
+from models.schemas import CostSummary
+from services.gcp_client import CostService, gcp_clients
 
 router = APIRouter(prefix="/api/v1/costs", tags=["costs"])
 
@@ -43,7 +41,7 @@ async def get_cost_summary():
     recommendations = [
         "Consider committed use discounts for Compute Engine (potential savings: $450/mo)",
         "3 idle VM instances detected - potential savings: $280/mo",
-        "Enable lifecycle policies on 5 Cloud Storage buckets - potential savings: $120/mo"
+        "Enable lifecycle policies on 5 Cloud Storage buckets - potential savings: $120/mo",
     ]
 
     return CostSummary(
@@ -55,14 +53,14 @@ async def get_cost_summary():
         budget_status=budget_status,
         breakdown=breakdown,
         top_projects=[],
-        recommendations=recommendations
+        recommendations=recommendations,
     )
 
 
 @router.get("/breakdown")
 async def get_cost_breakdown_detailed(
     days: int = Query(30, ge=1, le=365),
-    group_by: str = Query("service", pattern="^(service|project|region)$")
+    group_by: str = Query("service", pattern="^(service|project|region)$"),
 ):
     """Get detailed cost breakdown."""
     service = get_cost_service()
@@ -72,14 +70,12 @@ async def get_cost_breakdown_detailed(
         "period_days": days,
         "group_by": group_by,
         "breakdown": breakdown,
-        "total": sum(item["cost"] for item in breakdown)
+        "total": sum(item["cost"] for item in breakdown),
     }
 
 
 @router.get("/trends")
-async def get_cost_trends(
-    days: int = Query(30, ge=7, le=90)
-):
+async def get_cost_trends(days: int = Query(30, ge=7, le=90)):
     """Get cost trends over time."""
     # This would query BigQuery for daily cost trends
     return {
@@ -87,7 +83,7 @@ async def get_cost_trends(
         "data_points": [],
         "average_daily_cost": 0.0,
         "peak_cost_day": None,
-        "trend": "stable"
+        "trend": "stable",
     }
 
 
@@ -106,7 +102,7 @@ async def get_cost_optimizations():
                 "resource_type": "instance",
                 "resource_id": "projects/*/regions/*/instances/*",
                 "action": "Purchase 1-year CUD for consistent workloads",
-                "priority": "high"
+                "priority": "high",
             },
             {
                 "id": "opt-2",
@@ -117,7 +113,7 @@ async def get_cost_optimizations():
                 "resource_type": "instance",
                 "resource_id": "projects/*/zones/*/instances/idle-*",
                 "action": "Stop or delete idle instances",
-                "priority": "high"
+                "priority": "high",
             },
             {
                 "id": "opt-3",
@@ -128,7 +124,7 @@ async def get_cost_optimizations():
                 "resource_type": "bucket",
                 "resource_id": "projects/*/buckets/backup-*",
                 "action": "Create lifecycle rules for data older than 90 days",
-                "priority": "medium"
-            }
-        ]
+                "priority": "medium",
+            },
+        ],
     }

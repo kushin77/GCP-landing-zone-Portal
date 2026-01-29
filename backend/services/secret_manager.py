@@ -12,9 +12,9 @@ Usage:
 This avoids committing secrets into the repository and supports CI patterns
 that populate secrets in GSM and grant access to the runtime service account.
 """
-from typing import Iterable, Optional
-import os
 import logging
+import os
+from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,9 @@ def _get_project_id() -> Optional[str]:
     return None
 
 
-def get_secret(secret_id: str, project_id: Optional[str] = None, version: str = "latest") -> Optional[str]:
+def get_secret(
+    secret_id: str, project_id: Optional[str] = None, version: str = "latest"
+) -> Optional[str]:
     """Retrieve a secret value from Google Secret Manager.
 
     Returns the secret string or None if Secret Manager is unavailable or access fails.
