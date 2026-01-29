@@ -10,20 +10,19 @@ Features:
 - Circuit breaker with graceful degradation
 """
 
-import asyncio
 import logging
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Tuple, Dict, Any, Optional
 from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
 import redis.asyncio as aioredis
+from fastapi import Request
+from opentelemetry import metrics
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
-from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from opentelemetry import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -33,19 +32,18 @@ rate_limit_requests = meter.create_counter(
     "rate_limit_requests_total",
     unit="1",
     description="Total requests evaluated by rate limiter",
-    attributes=["client_id", "tier", "allowed"]
 )
 
 rate_limit_violations = meter.create_counter(
     "rate_limit_violations_total",
     unit="1",
     description="Rate limit violations",
-    attributes=["client_id", "tier", "endpoint"]
 )
 
 
 class ClientTier(str, Enum):
     """Client tier definitions"""
+
     PUBLIC = "public"
     AUTHENTICATED = "authenticated"
     ADMIN = "admin"
@@ -137,10 +135,7 @@ class DistributedRateLimiter:
             logger.info("Rate limiter shutdown")
 
     async def is_allowed(
-        self,
-        client_id: str,
-        max_requests: int,
-        window_seconds: int
+        self, client_id: str, max_requests: int, window_seconds: int
     ) -> Tuple[bool, Dict[str, Any]]:
         """
         Check if request is allowed under rate limit.
@@ -160,12 +155,7 @@ class DistributedRateLimiter:
         try:
             # Execute Lua script atomically
             result = await self.redis.evalsha(
-                self._lua_script,
-                1,
-                key,
-                max_requests,
-                refill_rate,
-                now
+                self._lua_script, 1, key, max_requests, refill_rate, now
             )
 
             is_allowed, remaining = result
@@ -177,11 +167,14 @@ class DistributedRateLimiter:
                 "window_seconds": window_seconds,
             }
 
-            rate_limit_requests.add(1, {
-                "client_id": client_id,
-                "tier": "unknown",
-                "allowed": "true" if is_allowed else "false"
-            })
+            rate_limit_requests.add(
+                1,
+                {
+                    "client_id": client_id,
+                    "tier": "unknown",
+                    "allowed": "true" if is_allowed else "false",
+                },
+            )
 
             return bool(is_allowed), metadata
         except RedisError as e:
@@ -190,10 +183,7 @@ class DistributedRateLimiter:
             return True, {"remaining": max_requests, "limit": max_requests}
 
     async def get_dynamic_limit(
-        self,
-        client_tier: ClientTier,
-        method: str,
-        endpoint: str
+        self, client_tier: ClientTier, method: str, endpoint: str
     ) -> Dict[str, int]:
         """
         Get rate limit based on tier and endpoint.
@@ -214,8 +204,7 @@ class DistributedRateLimiter:
         else:
             # Use tier-based limit
             base_limit = RateLimitConfig.TIER_LIMITS.get(
-                client_tier,
-                RateLimitConfig.DEFAULT_ENDPOINT_LIMIT
+                client_tier, RateLimitConfig.DEFAULT_ENDPOINT_LIMIT
             )
 
         # Adapt based on backend health
@@ -223,16 +212,10 @@ class DistributedRateLimiter:
 
         if health["status"] == "critical":
             # Reduce limit by 80%
-            return {
-                "requests": int(base_limit["requests"] * 0.2),
-                "window": base_limit["window"]
-            }
+            return {"requests": int(base_limit["requests"] * 0.2), "window": base_limit["window"]}
         elif health["status"] == "degraded":
             # Reduce limit by 50%
-            return {
-                "requests": int(base_limit["requests"] * 0.5),
-                "window": base_limit["window"]
-            }
+            return {"requests": int(base_limit["requests"] * 0.5), "window": base_limit["window"]}
 
         return base_limit
 
@@ -289,24 +272,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Get rate limit for this endpoint
         limit = await self.rate_limiter.get_dynamic_limit(
-            client_tier,
-            request.method,
-            request.url.path
+            client_tier, request.method, request.url.path
         )
 
         # Check if allowed
         is_allowed, metadata = await self.rate_limiter.is_allowed(
-            client_id,
-            limit["requests"],
-            limit["window"]
+            client_id, limit["requests"], limit["window"]
         )
 
         if not is_allowed:
-            rate_limit_violations.add(1, {
-                "client_id": client_id,
-                "tier": client_tier.value,
-                "endpoint": request.url.path
-            })
+            rate_limit_violations.add(
+                1, {"client_id": client_id, "tier": client_tier.value, "endpoint": request.url.path}
+            )
 
             # Return 429 Too Many Requests
             return JSONResponse(
@@ -314,16 +291,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": "rate_limit_exceeded",
                     "message": "Too many requests",
-                    "retry_after": limit["window"]
+                    "retry_after": limit["window"],
                 },
                 headers={
                     "Retry-After": str(limit["window"]),
                     "X-RateLimit-Limit": str(limit["requests"]),
                     "X-RateLimit-Remaining": "0",
                     "X-RateLimit-Reset": str(
-                        int((datetime.now(timezone.utc) + timedelta(seconds=limit["window"])).timestamp())
+                        int(
+                            (
+                                datetime.now(timezone.utc) + timedelta(seconds=limit["window"])
+                            ).timestamp()
+                        )
                     ),
-                }
+                },
             )
 
         # Allow request, add headers
@@ -381,6 +362,7 @@ async def get_rate_limiter() -> DistributedRateLimiter:
     if _rate_limiter is None:
         _rate_limiter = DistributedRateLimiter()
         import os
+
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/1")
         await _rate_limiter.initialize(redis_url)
 

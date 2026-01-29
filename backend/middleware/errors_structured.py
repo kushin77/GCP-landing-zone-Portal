@@ -10,9 +10,9 @@ Provides:
 - SLI metrics
 """
 import logging
-from enum import Enum
-from typing import Optional, Dict, Any
 from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Error Codes
 # ============================================================================
+
 
 class ErrorCode(str, Enum):
     """Standardized error codes for monitoring and alerting."""
@@ -73,6 +74,7 @@ class ErrorCode(str, Enum):
 # ============================================================================
 # Exception Hierarchy
 # ============================================================================
+
 
 class LandingZoneException(Exception):
     """Base exception for Landing Zone Portal."""
@@ -146,9 +148,7 @@ class TokenExpiredError(LandingZoneException):
 class PermissionDeniedError(LandingZoneException):
     """User lacks required permission."""
 
-    def __init__(
-        self, required_permission: str, details: Optional[Dict] = None
-    ):
+    def __init__(self, required_permission: str, details: Optional[Dict] = None):
         super().__init__(
             code=ErrorCode.AUTH_PERMISSION_DENIED,
             message=f"Permission denied: {required_permission}",
@@ -248,8 +248,7 @@ class QuotaExceededError(LandingZoneException):
             message=f"Quota exceeded: {quota_name} ({used}/{limit})",
             http_status=429,
             retryable=False,
-            details=details
-            or {"quota_name": quota_name, "used": used, "limit": limit},
+            details=details or {"quota_name": quota_name, "used": used, "limit": limit},
         )
 
 
@@ -273,16 +272,13 @@ class ServiceUnavailableError(LandingZoneException):
 class ServiceTimeoutError(LandingZoneException):
     """Service request timed out."""
 
-    def __init__(
-        self, service_name: str, timeout_seconds: float, details: Optional[Dict] = None
-    ):
+    def __init__(self, service_name: str, timeout_seconds: float, details: Optional[Dict] = None):
         super().__init__(
             code=ErrorCode.SERVICE_TIMEOUT,
             message=f"Service timeout: {service_name} ({timeout_seconds}s)",
             http_status=504,
             retryable=True,
-            details=details
-            or {"service": service_name, "timeout_seconds": timeout_seconds},
+            details=details or {"service": service_name, "timeout_seconds": timeout_seconds},
         )
 
 
@@ -302,24 +298,20 @@ class DatabaseError(LandingZoneException):
             message=f"Database error: {operation} ({reason})",
             http_status=500,
             retryable=retryable,
-            details=details
-            or {"operation": operation, "reason": reason},
+            details=details or {"operation": operation, "reason": reason},
         )
 
 
 class DatabaseQuotaExceededError(LandingZoneException):
     """Database quota exceeded."""
 
-    def __init__(
-        self, quota_type: str, used: int, limit: int, details: Optional[Dict] = None
-    ):
+    def __init__(self, quota_type: str, used: int, limit: int, details: Optional[Dict] = None):
         super().__init__(
             code=ErrorCode.DATABASE_QUOTA_EXCEEDED,
             message=f"Database quota exceeded: {quota_type}",
             http_status=429,
             retryable=False,
-            details=details
-            or {"quota_type": quota_type, "used": used, "limit": limit},
+            details=details or {"quota_type": quota_type, "used": used, "limit": limit},
         )
 
 
@@ -369,10 +361,11 @@ class GCPError(LandingZoneException):
 # Error Recovery Helpers
 # ============================================================================
 
+
 def classify_gcp_error(error: Exception) -> LandingZoneException:
     """Classify GCP error into appropriate exception type."""
     error_str = str(error).lower()
-    error_type = type(error).__name__
+    type(error).__name__
 
     # Quota exceeded
     if "quota" in error_str or "exceeded" in error_str:

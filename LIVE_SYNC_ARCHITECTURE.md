@@ -43,8 +43,8 @@ The Portal will operate as a **consumer** of the Landing Zone (source of truth),
 ## 2. Five-Layer Sync Architecture
 
 ### Layer 1: **Webhook-Triggered Sync** (Immediate)
-**When**: Landing Zone repository updated (push/PR merge)  
-**What**: Trigger Portal rebuild/updates  
+**When**: Landing Zone repository updated (push/PR merge)
+**What**: Trigger Portal rebuild/updates
 **Implementation**: GitHub Actions webhook
 
 ```yaml
@@ -75,8 +75,8 @@ jobs:
 ---
 
 ### Layer 2: **Git Sync** (Documentation & Configs)
-**Frequency**: Every 6 hours or on webhook trigger  
-**What**: Auto-sync docs, policies, enforcement gates  
+**Frequency**: Every 6 hours or on webhook trigger
+**What**: Auto-sync docs, policies, enforcement gates
 **Files to sync**:
 - `docs/**` → Portal knowledge base
 - `pmo.yaml` → Portal governance config
@@ -102,23 +102,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Configure Git
         run: |
           git config user.name "Portal Sync Bot"
           git config user.email "noreply@portal.local"
-      
+
       - name: Sync Documentation
         run: |
           # Clone LZ repo to temp directory
           git clone --depth 1 https://github.com/kushin77/GCP-landing-zone.git /tmp/lz
-          
+
           # Sync specific directories
           cp -r /tmp/lz/docs/* ./docs/lz-reference/
           cp /tmp/lz/pmo.yaml ./config/lz-pmo.yaml
           cp /tmp/lz/ENFORCEMENT_GATES.md ./docs/lz-reference/
           cp /tmp/lz/RUNBOOKS.md ./docs/lz-reference/
-          
+
       - name: Commit changes
         run: |
           git add -A
@@ -133,8 +133,8 @@ jobs:
 ---
 
 ### Layer 3: **API Sync** (Infrastructure State)
-**Frequency**: Real-time (Pub/Sub) or every 5 minutes  
-**What**: Query actual GCP infrastructure, policies, resource state  
+**Frequency**: Real-time (Pub/Sub) or every 5 minutes
+**What**: Query actual GCP infrastructure, policies, resource state
 **Implementation**: FastAPI backend querying GCP APIs
 
 ```python
@@ -145,11 +145,11 @@ import logging
 
 class LZSyncService:
     """Syncs real-time infrastructure state from GCP."""
-    
+
     def __init__(self):
         self.asset_client = asset_v1.AssetServiceClient()
         self.gke_client = container_v1.ClusterManagerClient()
-    
+
     async def sync_infrastructure_state(self):
         """Fetch current infrastructure state from GCP."""
         resources = {
@@ -163,7 +163,7 @@ class LZSyncService:
             'last_sync': datetime.utcnow().isoformat()
         }
         return resources
-    
+
     def get_projects(self):
         """Get all GCP projects in Landing Zone."""
         query = """
@@ -172,7 +172,7 @@ class LZSyncService:
         WHERE resource.parent.type = 'organization'
         """
         return self.asset_client.search_all_resources(parent=..., query=query)
-    
+
     def get_vpcs(self):
         """Get all VPC networks."""
         query = """
@@ -180,14 +180,14 @@ class LZSyncService:
         FROM `compute.googleapis.com/Network`
         """
         return self.asset_client.search_all_resources(parent=..., query=query)
-    
+
     def get_policy_violations(self):
         """Get policy violations from enforcement gates."""
         # Query Cloud Asset Inventory + custom enforcement
         violations = []
         # Implementation details...
         return violations
-    
+
     def get_compliance_status(self):
         """Aggregate compliance posture."""
         return {
@@ -211,8 +211,8 @@ async def get_infrastructure_state():
 ---
 
 ### Layer 4: **Real-Time Events** (Pub/Sub)
-**When**: Infrastructure changes detected  
-**What**: Publish events for real-time Portal updates  
+**When**: Infrastructure changes detected
+**What**: Publish events for real-time Portal updates
 **Implementation**: Cloud Pub/Sub + WebSocket
 
 ```python
@@ -221,38 +221,38 @@ from google.cloud import pubsub_v1
 
 class LZEventSubscriber:
     """Subscribe to LZ infrastructure changes."""
-    
+
     def __init__(self):
         self.subscriber_client = pubsub_v1.SubscriberClient()
         self.subscription_path = self.subscriber_client.subscription_path(
             'project-id', 'lz-events-subscription'
         )
-    
+
     def start_listening(self):
         """Listen to infrastructure change events."""
         streaming_pull_future = self.subscriber_client.subscribe(
-            self.subscription_path, 
+            self.subscription_path,
             callback=self._handle_infrastructure_change
         )
         return streaming_pull_future
-    
+
     async def _handle_infrastructure_change(self, message):
         """Process infrastructure change and broadcast to Portal."""
         event = json.loads(message.data)
-        
+
         # Event types: resource_created, resource_deleted, policy_violated
         event_type = event['event_type']
         resource = event['resource']
         timestamp = event['timestamp']
-        
+
         # Broadcast to connected WebSocket clients
         await self._broadcast_to_portal(event)
-        
+
         # Update Portal cache/database
         await self._update_portal_state(event)
-        
+
         message.ack()
-    
+
     async def _broadcast_to_portal(self, event):
         """Send WebSocket update to Portal UI."""
         # WebSocket implementation
@@ -262,8 +262,8 @@ class LZEventSubscriber:
 ---
 
 ### Layer 5: **Data Pipeline** (Aggregation & Analytics)
-**Frequency**: Daily/Weekly  
-**What**: Historical trends, cost analysis, compliance evolution  
+**Frequency**: Daily/Weekly
+**What**: Historical trends, cost analysis, compliance evolution
 **Implementation**: BigQuery + scheduled Cloud Functions
 
 ```sql
@@ -271,7 +271,7 @@ class LZEventSubscriber:
 CREATE OR REPLACE SCHEDULED QUERY `project.dataset.daily_lz_metrics`
 OPTIONS(
   query="""
-  SELECT 
+  SELECT
     CURRENT_DATE() as date,
     'gcp-landing-zone' as source,
     COUNT(DISTINCT resource_name) as total_resources,
@@ -323,7 +323,7 @@ sync_layers:
   webhook:
     enabled: true
     timeout_seconds: 300
-  
+
   git_sync:
     enabled: true
     frequency_hours: 6
@@ -331,7 +331,7 @@ sync_layers:
       - docs/**
       - pmo.yaml
       - ENFORCEMENT_GATES.md
-  
+
   api_sync:
     enabled: true
     frequency_minutes: 5
@@ -340,12 +340,12 @@ sync_layers:
       - /vpcs
       - /compute
       - /compliance
-  
+
   pubsub:
     enabled: true
     topic: 'lz-infrastructure-events'
     subscription: 'portal-lz-events'
-  
+
   bigquery:
     enabled: true
     schedule: 'daily'
@@ -475,11 +475,11 @@ alerts:
   - name: SyncFailure
     condition: sync_success_rate < 0.95
     notification: slack, email, pagerduty
-  
+
   - name: SyncLatency
     condition: sync_latency_seconds > 300
     severity: warning
-  
+
   - name: DataFreshness
     condition: portal_data_age_hours > 6
     severity: warning
@@ -541,6 +541,6 @@ alerts:
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2026-01-26  
+**Document Version**: 1.0
+**Last Updated**: 2026-01-26
 **Maintained By**: Platform Engineering Team

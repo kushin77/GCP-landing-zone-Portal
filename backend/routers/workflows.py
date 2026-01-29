@@ -1,14 +1,12 @@
 """
 Workflows API router for infrastructure provisioning.
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Dict, List, Optional
-from datetime import datetime
 import uuid
-from models.schemas import (
-    Workflow, WorkflowRequest, WorkflowApproval,
-    WorkflowStatus, BaseResponse
-)
+from datetime import datetime
+from typing import Dict, List, Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from models.schemas import BaseResponse, Workflow, WorkflowApproval, WorkflowRequest, WorkflowStatus
 
 router = APIRouter(prefix="/api/v1/workflows", tags=["workflows"])
 
@@ -36,7 +34,7 @@ async def create_workflow(request: WorkflowRequest):
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
         approvals=[],
-        execution_logs=[]
+        execution_logs=[],
     )
 
     workflows_db[workflow_id] = workflow
@@ -54,7 +52,7 @@ async def list_workflows(
     status: Optional[WorkflowStatus] = None,
     requester: Optional[str] = None,
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100)
+    limit: int = Query(10, ge=1, le=100),
 ):
     """List all workflows with optional filtering."""
     filtered = list(workflows_db.values())
@@ -85,10 +83,7 @@ async def get_workflow(workflow_id: str):
 
 
 @router.post("/{workflow_id}/approve", response_model=Workflow)
-async def approve_workflow(
-    workflow_id: str,
-    approval: WorkflowApproval
-):
+async def approve_workflow(workflow_id: str, approval: WorkflowApproval):
     """Approve or reject a workflow."""
     if workflow_id not in workflows_db:
         raise HTTPException(status_code=404, detail="Workflow not found")
@@ -97,8 +92,7 @@ async def approve_workflow(
 
     if workflow.status != WorkflowStatus.PENDING:
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot approve workflow in {workflow.status} status"
+            status_code=400, detail=f"Cannot approve workflow in {workflow.status} status"
         )
 
     # Add approval
@@ -134,16 +128,13 @@ async def execute_workflow(workflow_id: str):
 
     if workflow.status != WorkflowStatus.APPROVED:
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot execute workflow in {workflow.status} status"
+            status_code=400, detail=f"Cannot execute workflow in {workflow.status} status"
         )
 
     # Update status
     workflow.status = WorkflowStatus.IN_PROGRESS
     workflow.updated_at = datetime.utcnow()
-    workflow.execution_logs.append(
-        f"{datetime.utcnow().isoformat()} - Execution started"
-    )
+    workflow.execution_logs.append(f"{datetime.utcnow().isoformat()} - Execution started")
 
     # In production, this would:
     # 1. Generate Terraform plan
@@ -165,9 +156,7 @@ Terraform will perform the following actions:
 Plan: 1 to add, 0 to change, 0 to destroy.
 """
 
-    workflow.execution_logs.append(
-        f"{datetime.utcnow().isoformat()} - Terraform plan generated"
-    )
+    workflow.execution_logs.append(f"{datetime.utcnow().isoformat()} - Terraform plan generated")
 
     # Simulate completion
     workflow.status = WorkflowStatus.COMPLETED
@@ -188,16 +177,12 @@ async def cancel_workflow(workflow_id: str):
 
     if workflow.status in [WorkflowStatus.COMPLETED, WorkflowStatus.FAILED]:
         raise HTTPException(
-            status_code=400,
-            detail=f"Cannot cancel workflow in {workflow.status} status"
+            status_code=400, detail=f"Cannot cancel workflow in {workflow.status} status"
         )
 
     del workflows_db[workflow_id]
 
-    return BaseResponse(
-        success=True,
-        message=f"Workflow {workflow_id} cancelled"
-    )
+    return BaseResponse(success=True, message=f"Workflow {workflow_id} cancelled")
 
 
 @router.get("/{workflow_id}/terraform-plan")
@@ -209,13 +194,10 @@ async def get_terraform_plan(workflow_id: str):
     workflow = workflows_db[workflow_id]
 
     if not workflow.terraform_plan:
-        raise HTTPException(
-            status_code=404,
-            detail="Terraform plan not yet generated"
-        )
+        raise HTTPException(status_code=404, detail="Terraform plan not yet generated")
 
     return {
         "workflow_id": workflow_id,
         "plan": workflow.terraform_plan,
-        "generated_at": workflow.updated_at
+        "generated_at": workflow.updated_at,
     }

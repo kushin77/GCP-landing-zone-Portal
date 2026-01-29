@@ -1,8 +1,8 @@
 # Landing Zone PMO Enforcement Gates
 
-**Document Version**: 1.0  
-**Last Updated**: 2026-01-26  
-**Owner**: Platform Engineering  
+**Document Version**: 1.0
+**Last Updated**: 2026-01-26
+**Owner**: Platform Engineering
 **Status**: Operational
 
 ---
@@ -238,18 +238,18 @@ bash scripts/validation/folder-hierarchy-validation.sh
 project:
   name: "[Project Name]"
   repository: "[GitHub URL]"
-  
+
 ownership:
   owner: "[Team Name]"
   owner_email: "[Team Email]"
-  
+
 governance:
   compliance_tier: "[tier-1|tier-2|tier-3]"
   nist_controls: [list of controls]
-  
+
 pmo_mandates:
   [all 5 phases documented]
-  
+
 enforcement_gates:
   [all gates with validation rules]
 ```
@@ -328,7 +328,7 @@ test -f pmo.yaml && echo "✅ pmo.yaml present"
   - Security risk with compliance
   - Critical business timeline pressure
   - Technical infeasibility with documented justification
-  
+
 - **Duration**: Maximum 90 days from approval date
 - **Tracking**: All exemptions logged in `docs/governance/EXEMPTION_LOG.md`
 - **Template**: [EXEMPTION_REQUEST_TEMPLATE.md](docs/governance/templates/EXEMPTION_REQUEST_TEMPLATE.md)
@@ -370,6 +370,6 @@ test -f pmo.yaml && echo "✅ pmo.yaml present"
 - Email: platform-eng@example.com
 - Escalation: CTO (for mandate waivers)
 
-**Document Review Cycle**: Quarterly  
-**Last Reviewed**: 2026-01-26  
+**Document Review Cycle**: Quarterly
+**Last Reviewed**: 2026-01-26
 **Next Review**: 2026-04-26

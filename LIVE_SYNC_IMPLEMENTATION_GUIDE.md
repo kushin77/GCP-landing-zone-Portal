@@ -1,7 +1,7 @@
 # Live Sync Implementation Guide
 
-**Status**: Q1 2026 Implementation  
-**Estimated Duration**: 4 weeks  
+**Status**: Q1 2026 Implementation
+**Estimated Duration**: 4 weeks
 **Difficulty**: Medium to Advanced
 
 ---
@@ -205,16 +205,16 @@ sync_service = None
 async def lifespan(app: FastAPI):
     """Initialize sync service on startup."""
     global sync_service
-    
+
     # Initialize with your project ID
     sync_service = LZSyncService(
         project_id="your-gcp-project",
         gcp_parent="organizations/YOUR_ORG_ID"  # Optional
     )
-    
+
     logger.info("LZ Sync service initialized")
     yield
-    
+
     logger.info("Shutting down LZ Sync service")
 
 app = FastAPI(lifespan=lifespan)
@@ -334,7 +334,7 @@ async def start_event_listener():
     """Start listening to LZ infrastructure events."""
     service = LZSyncService(project_id="your-project")
     streaming_pull_future = service.start_pubsub_listener()
-    
+
     try:
         streaming_pull_future.result()
     except KeyboardInterrupt:
@@ -380,12 +380,12 @@ export function useSyncEvents() {
 
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:8000/ws/sync-events');
-    
+
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       setEvents(prev => [data, ...prev].slice(0, 100));
     };
-    
+
     return () => ws.close();
   }, []);
 
@@ -560,6 +560,6 @@ gcloud pubsub topics publish lz-infrastructure-events \
 
 ---
 
-**Estimated Total Effort**: 4 weeks (1 engineer, full-time)  
-**Recommended Team**: 1 Backend Engineer + 1 Frontend Engineer  
+**Estimated Total Effort**: 4 weeks (1 engineer, full-time)
+**Recommended Team**: 1 Backend Engineer + 1 Frontend Engineer
 **Support**: Platform Engineering, DevOps, Data Engineering (for BigQuery)

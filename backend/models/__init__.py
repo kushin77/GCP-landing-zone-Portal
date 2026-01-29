@@ -1,6 +1,6 @@
 """
 Model exports.
 """
-from .schemas import *
+from . import schemas
 
 __all__ = ["schemas"]

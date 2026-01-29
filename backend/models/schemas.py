@@ -2,8 +2,9 @@
 Pydantic models for API request/response schemas.
 """
 from datetime import datetime
-from typing import List, Optional, Dict, Any
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field, validator
 
 
@@ -39,6 +40,7 @@ class ComplianceFramework(str, Enum):
 # Base Models
 class BaseResponse(BaseModel):
     """Base response model with common fields."""
+
     success: bool = True
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     message: Optional[str] = None
@@ -46,33 +48,36 @@ class BaseResponse(BaseModel):
 
 class PaginationParams(BaseModel):
     """Pagination parameters."""
+
     page: int = Field(1, ge=1)
     limit: int = Field(10, ge=1, le=100)
     offset: int = 0
 
-    @validator('offset', always=True)
+    @validator("offset", always=True)
     def calculate_offset(cls, v, values):
-        return (values.get('page', 1) - 1) * values.get('limit', 10)
+        return (values.get("page", 1) - 1) * values.get("limit", 10)
 
 
 class PaginatedResponse(BaseModel):
     """Paginated response wrapper."""
+
     data: List[Any]
     total: int
     page: int
     limit: int
     pages: int
 
-    @validator('pages', always=True)
+    @validator("pages", always=True)
     def calculate_pages(cls, v, values):
-        total = values.get('total', 0)
-        limit = values.get('limit', 10)
+        total = values.get("total", 0)
+        limit = values.get("limit", 10)
         return (total + limit - 1) // limit if limit > 0 else 0
 
 
 # Resource Models
 class ResourceBase(BaseModel):
     """Base resource model."""
+
     id: str
     name: str
     type: ResourceType
@@ -85,6 +90,7 @@ class ResourceBase(BaseModel):
 
 class Resource(ResourceBase):
     """Full resource with metadata."""
+
     status: str
     owner: Optional[str] = None
     cost_center: Optional[str] = None
@@ -94,12 +100,14 @@ class Resource(ResourceBase):
 
 class ResourceListResponse(PaginatedResponse):
     """Resource list response."""
+
     data: List[Resource]
 
 
 # Project Models
 class Project(BaseModel):
     """GCP Project model."""
+
     id: str
     project_id: str
     name: str
@@ -113,7 +121,8 @@ class Project(BaseModel):
 
 class ProjectCreateRequest(BaseModel):
     """Project creation request."""
-    project_id: str = Field(..., pattern=r'^[a-z][-a-z0-9]{4,28}[a-z0-9]$')
+
+    project_id: str = Field(..., pattern=r"^[a-z][-a-z0-9]{4,28}[a-z0-9]$")
     name: str
     parent_folder: Optional[str] = None
     billing_account: Optional[str] = None
@@ -124,6 +133,7 @@ class ProjectCreateRequest(BaseModel):
 # Cost Models
 class CostBreakdown(BaseModel):
     """Cost breakdown by service."""
+
     service: str
     cost: float
     currency: str = "USD"
@@ -133,6 +143,7 @@ class CostBreakdown(BaseModel):
 
 class CostSummary(BaseModel):
     """Cost summary with trends."""
+
     current_month: float
     previous_month: float
     trend_percentage: float
@@ -146,6 +157,7 @@ class CostSummary(BaseModel):
 
 class CostOptimization(BaseModel):
     """Cost optimization recommendation."""
+
     id: str
     title: str
     description: str
@@ -160,6 +172,7 @@ class CostOptimization(BaseModel):
 # Compliance Models
 class ComplianceControl(BaseModel):
     """Individual compliance control."""
+
     id: str
     name: str
     framework: ComplianceFramework
@@ -171,6 +184,7 @@ class ComplianceControl(BaseModel):
 
 class ComplianceStatus(BaseModel):
     """Overall compliance status."""
+
     score: float
     framework: ComplianceFramework
     controls_total: int
@@ -183,6 +197,7 @@ class ComplianceStatus(BaseModel):
 # Workflow Models
 class WorkflowRequest(BaseModel):
     """Infrastructure workflow request."""
+
     type: str  # vm, project, database, network
     title: str
     description: str
@@ -196,6 +211,7 @@ class WorkflowRequest(BaseModel):
 
 class WorkflowApproval(BaseModel):
     """Workflow approval/rejection."""
+
     approved: bool
     approver: str
     comments: Optional[str] = None
@@ -204,6 +220,7 @@ class WorkflowApproval(BaseModel):
 
 class Workflow(WorkflowRequest):
     """Full workflow with status."""
+
     id: str
     status: WorkflowStatus
     created_at: datetime
@@ -216,6 +233,7 @@ class Workflow(WorkflowRequest):
 # AI Assistant Models
 class AIQuery(BaseModel):
     """AI assistant query."""
+
     query: str
     context: Optional[Dict[str, Any]] = None
     include_recommendations: bool = True
@@ -223,6 +241,7 @@ class AIQuery(BaseModel):
 
 class AIResponse(BaseModel):
     """AI assistant response."""
+
     answer: str
     confidence: float
     sources: List[str] = []
@@ -233,6 +252,7 @@ class AIResponse(BaseModel):
 # Security Models
 class SecurityFinding(BaseModel):
     """Security finding."""
+
     id: str
     severity: str
     category: str
@@ -245,6 +265,7 @@ class SecurityFinding(BaseModel):
 
 class SecurityPosture(BaseModel):
     """Overall security posture."""
+
     score: float
     critical_findings: int
     high_findings: int
@@ -256,6 +277,7 @@ class SecurityPosture(BaseModel):
 # Audit Models
 class AuditLog(BaseModel):
     """Audit log entry."""
+
     id: str
     timestamp: datetime
     user: str
@@ -270,6 +292,7 @@ class AuditLog(BaseModel):
 # Metrics Models
 class MetricDataPoint(BaseModel):
     """Single metric data point."""
+
     timestamp: datetime
     value: float
     labels: Dict[str, str] = {}
@@ -277,6 +300,7 @@ class MetricDataPoint(BaseModel):
 
 class MetricSeries(BaseModel):
     """Time series metric data."""
+
     metric: str
     unit: str
     data_points: List[MetricDataPoint]
@@ -286,6 +310,7 @@ class MetricSeries(BaseModel):
 # User Models
 class User(BaseModel):
     """User model."""
+
     id: str
     email: str
     name: str
@@ -297,6 +322,7 @@ class User(BaseModel):
 
 class UserPermissions(BaseModel):
     """User permissions."""
+
     user_id: str
     can_create_projects: bool = False
     can_approve_workflows: bool = False
