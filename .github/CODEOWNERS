@@ -1,0 +1,6 @@
+# Code owners for critical areas. Update as teams form.
+/.github/       @kushin77
+/backend/        @kushin77
+/frontend/       @kushin77
+/terraform/      @kushin77
+/k8s/            @kushin77

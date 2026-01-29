@@ -194,9 +194,9 @@ resource "google_storage_bucket" "audit_logs" {
   location      = var.region
   project       = var.project_id
   force_destroy = false
-  
+
   uniform_bucket_level_access = true
-  
+
   encryption {
     default_kms_key_name = google_kms_crypto_key.audit_key.id
   }
@@ -232,7 +232,7 @@ resource "google_access_context_manager_service_perimeter" "secrets" {
   name           = "accessPolicies/${google_access_context_manager_access_policy.policy.name}/servicePerimeters/secrets"
   title          = "Secrets Perimeter"
   perimeter_type = "PERIMETER_TYPE_REGULAR"
-  
+
   status {
     restricted_services = [
       "secretmanager.googleapis.com",

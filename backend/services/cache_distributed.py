@@ -110,7 +110,7 @@ class CacheService:
     ) -> Any:
         """
         Get value with multi-tier fallback.
-        
+
         Strategy:
         1. Check request-scoped cache (fastest)
         2. Check Redis cache (fast)
@@ -195,7 +195,7 @@ class CacheService:
     async def invalidate(self, pattern: str):
         """
         Invalidate cache entries matching pattern.
-        
+
         Args:
             pattern: Pattern like "projects:list:*" or exact key
         """
@@ -290,7 +290,7 @@ class CacheWarmer:
     async def warm_all(self, data_loader: Callable):
         """
         Warm cache with critical data.
-        
+
         Args:
             data_loader: Callable that returns dict of {key: value} to cache
         """

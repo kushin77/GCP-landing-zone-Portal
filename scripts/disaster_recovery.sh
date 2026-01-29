@@ -36,16 +36,16 @@ log_error() {
 
 backup_firestore() {
     log_info "Starting Firestore backup..."
-    
+
     # Create backup location if it doesn't exist
     gsutil mb -c STANDARD -l us-central1 "${BACKUP_BUCKET}" 2>/dev/null || true
-    
+
     # Export Firestore to Cloud Storage
     gcloud firestore export \
         --project="${GCP_PROJECT_ID}" \
         "${BACKUP_BUCKET}/firestore_${TIMESTAMP}" \
         --async
-    
+
     log_info "Firestore export started to ${BACKUP_BUCKET}/firestore_${TIMESTAMP}"
     log_info "Monitor progress with:"
     log_info "  gcloud firestore operations list --project=${GCP_PROJECT_ID}"
@@ -53,19 +53,19 @@ backup_firestore() {
 
 validate_backups() {
     log_info "Validating Firestore backups..."
-    
+
     # Check backup sizes
     echo "Listing backups:"
     gsutil ls -r "${BACKUP_BUCKET}/firestore_*" | head -20
-    
+
     # Validate latest backup is not empty
     LATEST_BACKUP=$(gsutil ls -r "${BACKUP_BUCKET}/firestore_*" | grep "metadata.json" | tail -1 | sed 's|/metadata.json||')
-    
+
     if [ -z "$LATEST_BACKUP" ]; then
         log_error "No valid backups found!"
         return 1
     fi
-    
+
     # Check metadata file exists
     if gsutil -q stat "${LATEST_BACKUP}/metadata.json"; then
         log_info "Latest backup valid: ${LATEST_BACKUP}"
@@ -78,17 +78,17 @@ validate_backups() {
 
 cleanup_old_backups() {
     log_info "Cleaning up backups older than 30 days..."
-    
+
     # Delete backups older than 30 days
     gsutil -m rm -r $(gsutil ls -r "${BACKUP_BUCKET}/firestore_*" | grep "/" | awk -F/ '{print $1"/"$2"/"$3}' | sort -u | while read backup; do
         backup_date=$(basename "$backup" | sed 's/firestore_//;s/_//g')
         cutoff_date=$(date -d '30 days ago' +%Y%m%d)
-        
+
         if [[ "$backup_date" < "$cutoff_date" ]]; then
             echo "$backup"
         fi
     done) 2>/dev/null || true
-    
+
     log_info "Old backups cleaned up"
 }
 
@@ -98,7 +98,7 @@ cleanup_old_backups() {
 
 migrate_schema() {
     log_info "Running database schema migrations..."
-    
+
     # In real implementation, use Firestore migrations or scripts
     python3 << 'EOF'
 from google.cloud import firestore
@@ -108,10 +108,10 @@ logger = logging.getLogger(__name__)
 
 async def run_migrations():
     db = firestore.Client()
-    
+
     # Example migration: Add new fields to projects
     projects_ref = db.collection('projects')
-    
+
     batch = db.batch()
     for doc in projects_ref.stream():
         if 'compliance_status' not in doc.to_dict():
@@ -119,7 +119,7 @@ async def run_migrations():
                 'compliance_status': 'pending',
                 'last_compliance_check': None,
             })
-    
+
     batch.commit()
     logger.info("Schema migration complete")
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     import asyncio
     asyncio.run(run_migrations())
 EOF
-    
+
     log_info "Schema migrations complete"
 }
 
@@ -137,14 +137,14 @@ EOF
 
 backup_terraform_state() {
     log_info "Backing up Terraform state..."
-    
+
     STATE_BUCKET="gs://${GCP_PROJECT_ID}-terraform-state"
-    
+
     # Create versioning-enabled bucket if it doesn't exist
     gsutil versioning set on "${STATE_BUCKET}" 2>/dev/null || \
         gsutil mb -c STANDARD -l us-central1 "${STATE_BUCKET}" && \
         gsutil versioning set on "${STATE_BUCKET}"
-    
+
     log_info "Terraform state bucket: ${STATE_BUCKET}"
     log_info "Versioning enabled - old versions retained"
 }
@@ -155,24 +155,24 @@ backup_terraform_state() {
 
 rotate_secrets() {
     log_info "Rotating service account keys..."
-    
+
     # List all service accounts
     SERVICE_ACCOUNTS=$(gcloud iam service-accounts list \
         --project="${GCP_PROJECT_ID}" \
         --format="value(email)")
-    
+
     for sa in $SERVICE_ACCOUNTS; do
         log_info "Rotating keys for: $sa"
-        
+
         # Find old keys (created > 90 days ago)
         cutoff_date=$(date -d '90 days ago' --iso-8601=seconds)
-        
+
         OLD_KEYS=$(gcloud iam service-accounts keys list \
             --iam-account="${sa}" \
             --project="${GCP_PROJECT_ID}" \
             --filter="validAfterTime < ${cutoff_date}" \
             --format="value(name)")
-        
+
         for key in $OLD_KEYS; do
             log_warn "Deleting old key: $key"
             gcloud iam service-accounts keys delete "$key" \
@@ -180,13 +180,13 @@ rotate_secrets() {
                 --project="${GCP_PROJECT_ID}" \
                 --quiet
         done
-        
+
         # Create new key
         gcloud iam service-accounts keys create \
             "/tmp/sa-key-${sa}.json" \
             --iam-account="${sa}" \
             --project="${GCP_PROJECT_ID}"
-        
+
         # Store in Secret Manager
         gcloud secrets versions add "${sa}-key" \
             --data-file="/tmp/sa-key-${sa}.json" \
@@ -194,10 +194,10 @@ rotate_secrets() {
             gcloud secrets create "${sa}-key" \
             --data-file="/tmp/sa-key-${sa}.json" \
             --project="${GCP_PROJECT_ID}"
-        
+
         # Securely delete temp file
         shred -vfz "/tmp/sa-key-${sa}.json"
-        
+
         log_info "Key rotated for: $sa"
     done
 }
@@ -209,7 +209,7 @@ rotate_secrets() {
 dr_drill() {
     log_info "Starting Disaster Recovery drill..."
     log_info "This is a DRY RUN - no changes will be made"
-    
+
     # 1. Verify backups exist
     if validate_backups; then
         log_info "✓ Backups exist and valid"
@@ -217,25 +217,25 @@ dr_drill() {
         log_error "✗ Backup validation failed"
         return 1
     fi
-    
+
     # 2. Verify Terraform state is backed up
     log_info "Checking Terraform state backup..."
     gsutil -q stat "gs://${GCP_PROJECT_ID}-terraform-state/prod/terraform.tfstate" && \
         log_info "✓ Terraform state backed up" || \
         log_error "✗ Terraform state not found"
-    
+
     # 3. Test restore procedure (dry-run)
     log_info "Testing restore procedure (dry-run)..."
     gcloud firestore databases list --project="${GCP_PROJECT_ID}" && \
         log_info "✓ Can access Firestore" || \
         log_error "✗ Cannot access Firestore"
-    
+
     # 4. Verify health checks
     log_info "Verifying health checks..."
     curl -s https://api.example.com/health >/dev/null && \
         log_info "✓ API health check passes" || \
         log_warn "⚠ API health check failed (may be expected in DR)"
-    
+
     log_info "DR Drill complete - if all checks passed, recovery is possible"
 }
 

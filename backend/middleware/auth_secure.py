@@ -209,7 +209,7 @@ class JWTValidator:
     def validate_iap_token(self, token: str) -> Dict[str, Any]:
         """
         Validate Google IAP JWT with signature verification.
-        
+
         Raises:
             ValueError: If token is invalid
         """
@@ -384,7 +384,7 @@ def extract_user_from_oauth_claims(claims: Dict[str, Any]) -> AuthenticatedUser:
 async def get_current_user(request: Request) -> Optional[AuthenticatedUser]:
     """
     Get current user from request.
-    
+
     Priority:
     1. IAP JWT (if deployed behind Cloud IAP)
     2. Authorization header (OAuth token)

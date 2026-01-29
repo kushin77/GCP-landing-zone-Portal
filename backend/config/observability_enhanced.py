@@ -344,7 +344,7 @@ groups:
         annotations:
           summary: "High error rate detected (> 1%)"
           runbook: "https://wiki.example.com/runbook/high_error_rate"
-      
+
       # High latency
       - alert: HighLatency
         expr: histogram_quantile(0.95, http_request_duration_seconds) > 5
@@ -354,7 +354,7 @@ groups:
         annotations:
           summary: "High API latency (p95 > 5s)"
           runbook: "https://wiki.example.com/runbook/high_latency"
-      
+
       # GCP quota exceeded
       - alert: GCPQuotaExceeded
         expr: gcp_quota_usage > 0.9
@@ -364,7 +364,7 @@ groups:
         annotations:
           summary: "GCP quota approaching limit (> 90%)"
           runbook: "https://wiki.example.com/runbook/quota_exceeded"
-      
+
       # Pod restart loop
       - alert: PodRestartLoop
         expr: rate(kube_pod_container_status_restarts_total[15m]) > 0.1
@@ -374,7 +374,7 @@ groups:
         annotations:
           summary: "Pod restarting frequently"
           runbook: "https://wiki.example.com/runbook/pod_restart_loop"
-      
+
       # Database unavailable
       - alert: DatabaseUnavailable
         expr: up{job="firestore"} == 0
@@ -384,7 +384,7 @@ groups:
         annotations:
           summary: "Database connection failed"
           runbook: "https://wiki.example.com/runbook/database_unavailable"
-      
+
       # Cache hit rate too low
       - alert: LowCacheHitRate
         expr: |
@@ -399,7 +399,7 @@ groups:
         annotations:
           summary: "Cache hit rate low (< 70%)"
           runbook: "https://wiki.example.com/runbook/low_cache_hit_rate"
-      
+
       # High rate limit violations
       - alert: HighRateLimitViolations
         expr: sum(rate(rate_limit_exceeded_total[5m])) > 10
