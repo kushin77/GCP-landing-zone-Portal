@@ -1,0 +1,23 @@
+[
+ {
+  "RuleID": "generic-api-key",
+  "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
+  "StartLine": 26,
+  "EndLine": 26,
+  "StartColumn": 7,
+  "EndColumn": 39,
+  "Match": "token\": \"eyJhbGciOiJIUzI1NiIs...\"",
+  "Secret": "eyJhbGciOiJIUzI1NiIs...",
+  "File": "API.md",
+  "SymlinkFile": "",
+  "Commit": "574b7821d4b061f4de173703214444f991c563ba",
+  "Link": "https://github.com/kushin77/GCP-landing-zone-Portal/blob/574b7821d4b061f4de173703214444f991c563ba/API.md?plain=1#L26",
+  "Entropy": 3.8164027,
+  "Author": "Akushnir",
+  "Email": "akushnir@bioenergystrategies.com",
+  "Date": "2026-01-19T02:07:09Z",
+  "Message": "feat(enforcement): add landing zone compliance for spoke onboarding\n\n- docs(canonical): add API.md, ARCHITECTURE.md, DEPLOYMENT.md, RUNBOOKS.md\n  * API.md: REST endpoints, auth, rate limiting, versioning strategy\n  * ARCHITECTURE.md: 5-layer design, technology stack, ADRs\n  * DEPLOYMENT.md: Layer deployment procedures, CI/CD integration\n  * RUNBOOKS.md: Incident response, DR, operational procedures\n\n- refactor(terraform): reorganize to 5-layer enforcement pattern\n  * Rename foundation/ → 01-foundation/\n  * Create 02-network/{vpc,firewall,nat}\n  * Create 03-security/{iam,secrets,compliance}\n  * Create 04-workloads/{api,frontend,database}\n  * Create 05-observability/{monitoring,logging,alerting}\n  * Create modules/{network,security,compute}\n\n- feat(scripts): add validation and enforcement hooks\n  * Add folder-hierarchy-validation.sh (5-layer compliance)\n  * Add hcl-syntax-check.sh (Terraform HCL validation)\n  * Organize scripts into automation, bootstrap, lib, maintenance, monitoring\n\n- docs(governance): add enforcement audit report and checklist\n  * LANDING_ZONE_ENFORCEMENT_AUDIT.md: Detailed compliance audit\n  * PRE_ONBOARDING_CHECKLIST.md: Onboarding verification steps\n  * REMEDIATION_SUMMARY.md: Remaining actions for spoke readiness\n\nAddresses: Landing zone enforcement requirements\nRelates-to: kushin77/GCP-landing-zone#enforcement",
+  "Tags": [],
+  "Fingerprint": "574b7821d4b061f4de173703214444f991c563ba:API.md:generic-api-key:26"
+ }
+]
