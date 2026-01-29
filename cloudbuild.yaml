@@ -1,4 +1,3 @@
-```yaml
 # =============================================================================
 # Cloud Build Configuration - FAANG-Grade CI/CD Pipeline
 # =============================================================================
@@ -39,6 +38,11 @@ steps:
       - '-c'
       - |
         trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed backend/
+    waitFor: ['-']
+
+  - name: 'returntocorp/semgrep'
+    id: 'semgrep-sast'
+    args: ['semgrep', 'scan', '--config', 'auto', '--error']
     waitFor: ['-']
 
   - name: 'node:20-slim'
@@ -135,6 +139,11 @@ steps:
         terraform fmt -check -recursive
     waitFor: ['-']
 
+  - name: 'instrumenta/conftest'
+    id: 'terraform-policy-check'
+    args: ['test', 'terraform/', '--policy', 'policies/terraform']
+    waitFor: ['terraform-validate']
+
   # ==========================================================================
   # Stage 4b: Terraform Plan Workloads (/lz LB + IAP)
   # ==========================================================================
@@ -199,13 +208,12 @@ steps:
     args:
       - '-c'
       - |
-        syft dir:. -o spdx-json=backend-sbom.json
+        syft dir:. -o spdx-json=../backend-sbom.json
     waitFor: ['test-backend']
 
   - name: 'anchore/grype:latest'
     id: 'grype-backend-sbom'
     entrypoint: 'sh'
-    dir: 'backend'
     args:
       - '-c'
       - |
@@ -236,13 +244,12 @@ steps:
     args:
       - '-c'
       - |
-        syft dir:. -o spdx-json=frontend-sbom.json
+        syft dir:. -o spdx-json=../frontend-sbom.json
     waitFor: ['test-frontend']
 
   - name: 'anchore/grype:latest'
     id: 'grype-frontend-sbom'
     entrypoint: 'sh'
-    dir: 'frontend'
     args:
       - '-c'
       - |
@@ -369,6 +376,40 @@ steps:
         exit 1
     waitFor: ['deploy-backend-staging', 'deploy-frontend-staging']
 
+  # ==========================================================================
+  # Stage 10: Artifact Archiving & Signing
+  # ==========================================================================
+  # Signing with Cosign (requires KMS key access)
+  # - name: 'gcr.io/projectsigstore/cosign:latest'
+  #   id: 'sign-images'
+  #   args: ['sign', '--key', 'gcpkms://projects/${PROJECT_ID}/locations/${_REGION}/keyRings/portal-ring/cryptoKeys/portal-sig-key', '${_BACKEND_IMAGE}:${COMMIT_SHA}', '${_FRONTEND_IMAGE}:${COMMIT_SHA}']
+  #   waitFor: ['push-backend', 'push-frontend']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'archive-artifacts'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gsutil cp backend-sbom.json gs://${PROJECT_ID}-artifacts/sboms/backend/${COMMIT_SHA}.json
+        gsutil cp frontend-sbom.json gs://${PROJECT_ID}-artifacts/sboms/frontend/${COMMIT_SHA}.json
+    waitFor: ['grype-backend-sbom', 'grype-frontend-sbom']
+
+  # ==========================================================================
+  # Stage 11: Production Deployment (Manual Approval Recommended)
+  # ==========================================================================
+  # This step is commented out to represent a gated promotion.
+  # Use Cloud Deploy or a manual approval step in Cloud Build trigger for this.
+  # - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  #   id: 'deploy-prod'
+  #   entrypoint: 'gcloud'
+  #   args:
+  #     - 'run'
+  #     - 'deploy'
+  #     - 'portal-backend-prod'
+  #     - '--image=${_BACKEND_IMAGE}:${COMMIT_SHA}'
+  #   waitFor: ['verify-staging']
+
 images:
   - '${_BACKEND_IMAGE}:${COMMIT_SHA}'
   - '${_BACKEND_IMAGE}:latest'
@@ -381,5 +422,3 @@ tags:
   - 'gcp-cloud'
   - 'portal'
   - 'ci-cd'
-
-```
