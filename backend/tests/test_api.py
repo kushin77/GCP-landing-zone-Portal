@@ -8,7 +8,7 @@ Tests cover:
 - Compliance API
 """
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -51,7 +51,7 @@ class TestProjectsAPI:
     def test_list_projects_returns_paginated(self, client: TestClient, mock_gcp_clients):
         """List projects should return paginated results."""
         with patch("routers.projects.ProjectService") as mock_service:
-            mock_service.return_value.list_projects = MagicMock(
+            mock_service.return_value.list_projects = AsyncMock(
                 return_value=[
                     {
                         "id": "projects/123",
@@ -79,7 +79,7 @@ class TestProjectsAPI:
     def test_list_projects_pagination_params(self, client: TestClient, mock_gcp_clients):
         """List projects should respect pagination parameters."""
         with patch("routers.projects.ProjectService") as mock_service:
-            mock_service.return_value.list_projects = MagicMock(return_value=[])
+            mock_service.return_value.list_projects = AsyncMock(return_value=[])
 
             response = client.get("/api/v1/projects/?page=2&limit=5")
 
@@ -91,7 +91,7 @@ class TestProjectsAPI:
     def test_get_project_not_found(self, client: TestClient, mock_gcp_clients):
         """Get non-existent project should return 404."""
         with patch("routers.projects.ProjectService") as mock_service:
-            mock_service.return_value.get_project = MagicMock(return_value=None)
+            mock_service.return_value.get_project = AsyncMock(return_value=None)
 
             response = client.get("/api/v1/projects/non-existent")
 
@@ -104,11 +104,14 @@ class TestCostsAPI:
     def test_get_cost_summary(self, client: TestClient, mock_cost_data):
         """Get cost summary should return cost data."""
         with patch("routers.costs.CostService") as mock_service:
-            mock_service.return_value.get_current_month_costs = MagicMock(
+            mock_service.return_value.get_current_month_costs = AsyncMock(
                 return_value=mock_cost_data["current_month"]
             )
-            mock_service.return_value.get_cost_breakdown = MagicMock(
+            mock_service.return_value.get_cost_breakdown = AsyncMock(
                 return_value=mock_cost_data["top_services"]
+            )
+            mock_service.return_value.get_cost_forecast = AsyncMock(
+                return_value=mock_cost_data["forecast_end_of_month"]
             )
 
             response = client.get("/api/v1/costs/summary")
@@ -122,7 +125,7 @@ class TestComplianceAPI:
     def test_get_compliance_status(self, client: TestClient, mock_compliance_data):
         """Get compliance status should return compliance data."""
         with patch("routers.compliance.compliance_service") as mock_service:
-            mock_service.get_compliance_status = MagicMock(
+            mock_service.get_compliance_status = AsyncMock(
                 return_value=MagicMock(
                     score=mock_compliance_data["score"],
                     framework="NIST 800-53",
@@ -143,7 +146,8 @@ class TestComplianceAPI:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
+        assert "frameworks" in data
+        assert isinstance(data["frameworks"], list)
 
 
 class TestDashboardAPI:
@@ -153,8 +157,9 @@ class TestDashboardAPI:
         """Dashboard should return aggregated data from all services."""
         with patch("services.gcp_client.CostService") as mock_cost:
             with patch("services.compliance_service.compliance_service"):
-                mock_cost.return_value.get_current_month_costs = MagicMock(return_value=12000.0)
-                mock_cost.return_value.get_cost_breakdown = MagicMock(return_value=[])
+                mock_cost.return_value.get_current_month_costs = AsyncMock(return_value=12000.0)
+                mock_cost.return_value.get_cost_breakdown = AsyncMock(return_value=[])
+                mock_cost.return_value.get_cost_forecast = AsyncMock(return_value=15000.0)
 
                 response = client.get("/api/v1/dashboard")
 
@@ -167,7 +172,7 @@ class TestAPIValidation:
     def test_pagination_limit_max(self, client: TestClient, mock_gcp_clients):
         """Pagination limit should not exceed 100."""
         with patch("routers.projects.ProjectService") as mock_service:
-            mock_service.return_value.list_projects = MagicMock(return_value=[])
+            mock_service.return_value.list_projects = AsyncMock(return_value=[])
 
             response = client.get("/api/v1/projects/?limit=200")
 
@@ -177,7 +182,7 @@ class TestAPIValidation:
     def test_pagination_page_minimum(self, client: TestClient, mock_gcp_clients):
         """Pagination page should be at least 1."""
         with patch("routers.projects.ProjectService") as mock_service:
-            mock_service.return_value.list_projects = MagicMock(return_value=[])
+            mock_service.return_value.list_projects = AsyncMock(return_value=[])
 
             response = client.get("/api/v1/projects/?page=0")
 

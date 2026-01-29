@@ -1,0 +1,3 @@
+53eb8c5 fix(security): redact embedded token in API.md and add Secret Manager guidance
+19830dc chore: fix trailing whitespace issues
+574b782 feat(enforcement): add landing zone compliance for spoke onboarding
