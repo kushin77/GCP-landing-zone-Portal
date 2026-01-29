@@ -3,18 +3,15 @@ Comprehensive testing framework for Landing Zone Portal.
 Includes: unit tests, integration tests, contract tests, load tests, security tests
 """
 
-import pytest
 import asyncio
-import time
-from datetime import datetime, timedelta
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
-from typing import AsyncGenerator
-import json
 import random
-import string
+import time
+from typing import AsyncGenerator
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi.testclient import TestClient
+import pytest
 from httpx import AsyncClient
+
 
 # Fixtures for async operations
 @pytest.fixture
@@ -24,6 +21,7 @@ async def async_client(app) -> AsyncGenerator:
 
 
 # ============= UNIT TESTS =============
+
 
 class TestCacheService:
     """Unit tests for cache service"""
@@ -73,9 +71,7 @@ class TestCacheService:
     @pytest.mark.asyncio
     async def test_cache_mget(self, cache_service):
         """Test multi-get"""
-        cache_service.redis.mget = AsyncMock(
-            return_value=[b'{"a": 1}', None, b'{"c": 3}']
-        )
+        cache_service.redis.mget = AsyncMock(return_value=[b'{"a": 1}', None, b'{"c": 3}'])
 
         result = await cache_service.mget(["key1", "key2", "key3"])
         assert len(result) == 3
@@ -134,20 +130,14 @@ class TestSecurityMiddleware:
 
     def test_xss_protection(self, client):
         """Test XSS payload is sanitized"""
-        response = client.post(
-            "/api/v1/projects",
-            json={"name": "<script>alert('xss')</script>"}
-        )
+        response = client.post("/api/v1/projects", json={"name": "<script>alert('xss')</script>"})
 
         # Should escape or reject malicious input
         assert response.status_code in [400, 422]
 
     def test_sql_injection_protection(self, client):
         """Test SQL injection payload is rejected"""
-        response = client.get(
-            "/api/v1/projects",
-            params={"filter": "'; DROP TABLE projects; --"}
-        )
+        response = client.get("/api/v1/projects", params={"filter": "'; DROP TABLE projects; --"})
 
         # Should be rejected or sanitized
         assert response.status_code in [400, 422]
@@ -160,6 +150,7 @@ class TestSecurityMiddleware:
 
 # ============= INTEGRATION TESTS =============
 
+
 class TestAPIIntegration:
     """Integration tests for API endpoints"""
 
@@ -168,7 +159,7 @@ class TestAPIIntegration:
         """Client with authentication token"""
         mocker.patch(
             "backend.middleware.auth.verify_token",
-            return_value={"user_id": "test-user", "role": "admin"}
+            return_value={"user_id": "test-user", "role": "admin"},
         )
         return async_client
 
@@ -177,8 +168,7 @@ class TestAPIIntegration:
         """Test complete project creation flow"""
         # Create project
         response = await authenticated_client.post(
-            "/api/v1/projects",
-            json={"name": "test-project", "environment": "dev"}
+            "/api/v1/projects", json={"name": "test-project", "environment": "dev"}
         )
         assert response.status_code == 201
         project_id = response.json()["id"]
@@ -192,8 +182,7 @@ class TestAPIIntegration:
     async def test_compliance_check_integration(self, authenticated_client):
         """Test compliance check across components"""
         response = await authenticated_client.post(
-            "/api/v1/compliance/check",
-            json={"project_id": "test-project"}
+            "/api/v1/compliance/check", json={"project_id": "test-project"}
         )
         assert response.status_code == 200
         assert "violations" in response.json()
@@ -201,19 +190,15 @@ class TestAPIIntegration:
     @pytest.mark.asyncio
     async def test_cache_integration(self, authenticated_client, mocker):
         """Test cache integration in API flow"""
-        mocker.patch(
-            "backend.services.cache_service.CacheService.get",
-            return_value=None
-        )
-        mocker.patch(
-            "backend.services.cache_service.CacheService.set"
-        )
+        mocker.patch("backend.services.cache_service.CacheService.get", return_value=None)
+        mocker.patch("backend.services.cache_service.CacheService.set")
 
         response = await authenticated_client.get("/api/v1/dashboards")
         assert response.status_code == 200
 
 
 # ============= CONTRACT TESTS =============
+
 
 class TestAPIContract:
     """Contract tests for API responses"""
@@ -253,12 +238,14 @@ class TestAPIContract:
 
 # ============= LOAD TESTS =============
 
+
 class TestLoadPerformance:
     """Load and performance tests"""
 
     @pytest.mark.asyncio
     async def test_concurrent_requests(self, async_client):
         """Test handling multiple concurrent requests"""
+
         async def make_request():
             return await async_client.get("/api/v1/projects")
 
@@ -281,7 +268,7 @@ class TestLoadPerformance:
 
         for _ in range(50):
             start = time.time()
-            response = await async_client.get("/api/v1/projects")
+            await async_client.get("/api/v1/projects")
             latency = (time.time() - start) * 1000  # Convert to ms
             latencies.append(latency)
 
@@ -304,7 +291,9 @@ class TestLoadPerformance:
             without_cache = time.time() - start
 
         # With cache
-        with patch("backend.services.cache_service.CacheService.get", return_value={"cached": True}):
+        with patch(
+            "backend.services.cache_service.CacheService.get", return_value={"cached": True}
+        ):
             start = time.time()
             for _ in range(10):
                 await async_client.get("/api/v1/dashboards")
@@ -315,6 +304,7 @@ class TestLoadPerformance:
 
 
 # ============= SECURITY TESTS =============
+
 
 class TestSecurityComprehensive:
     """Security testing including OWASP Top 10"""
@@ -329,10 +319,7 @@ class TestSecurityComprehensive:
         ]
 
         for payload in payloads:
-            response = client.get(
-                "/api/v1/projects",
-                params={"filter": payload}
-            )
+            response = client.get("/api/v1/projects", params={"filter": payload})
             # Should not execute query or should be escaped
             assert response.status_code in [400, 422, 200]
 
@@ -346,21 +333,14 @@ class TestSecurityComprehensive:
         ]
 
         for payload in payloads:
-            response = client.post(
-                "/api/v1/projects",
-                json={"name": payload}
-            )
+            response = client.post("/api/v1/projects", json={"name": payload})
             # Should sanitize or reject
             assert response.status_code in [400, 422]
 
     def test_csrf_validation(self, client):
         """Test CSRF protection"""
         # Request without CSRF token should fail
-        response = client.post(
-            "/api/v1/projects",
-            json={"name": "test"},
-            headers={}
-        )
+        response = client.post("/api/v1/projects", json={"name": "test"}, headers={})
         # Should require CSRF token
         assert response.status_code in [403, 422]
 
@@ -390,7 +370,7 @@ class TestSecurityComprehensive:
         """Test no sensitive data in error messages"""
         mocker.patch(
             "backend.routers.projects.get_project",
-            side_effect=Exception("Database connection string: postgres://user:pass@db:5432")
+            side_effect=Exception("Database connection string: postgres://user:pass@db:5432"),
         )
 
         response = client.get("/api/v1/projects/1")
@@ -400,6 +380,7 @@ class TestSecurityComprehensive:
 
 # ============= COMPLIANCE TESTS =============
 
+
 class TestComplianceControls:
     """Test compliance requirements"""
 
@@ -408,10 +389,7 @@ class TestComplianceControls:
         mock_logger = MagicMock()
         mocker.patch("backend.middleware.audit.logger", mock_logger)
 
-        response = client.post(
-            "/api/v1/projects",
-            json={"name": "test"}
-        )
+        client.post("/api/v1/projects", json={"name": "test"})
 
         # Verify audit log was called
         mock_logger.info.assert_called()
@@ -431,12 +409,14 @@ class TestComplianceControls:
 
 # ============= PERFORMANCE BENCHMARKS =============
 
+
 class TestPerformanceBenchmarks:
     """Performance benchmark tests"""
 
     @pytest.mark.benchmark
     def test_get_projects_benchmark(self, benchmark, client):
         """Benchmark project list endpoint"""
+
         def get_projects():
             return client.get("/api/v1/projects")
 
@@ -446,10 +426,10 @@ class TestPerformanceBenchmarks:
     @pytest.mark.benchmark
     def test_create_project_benchmark(self, benchmark, client):
         """Benchmark project creation"""
+
         def create_project():
             return client.post(
-                "/api/v1/projects",
-                json={"name": f"project-{random.randint(0, 9999)}"}
+                "/api/v1/projects", json={"name": f"project-{random.randint(0, 9999)}"}
             )
 
         result = benchmark(create_project)
@@ -458,20 +438,13 @@ class TestPerformanceBenchmarks:
 
 # ============= CONFTEST ADDITIONS =============
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers"""
-    config.addinivalue_line(
-        "markers", "asyncio: mark test as async"
-    )
-    config.addinivalue_line(
-        "markers", "benchmark: mark test as performance benchmark"
-    )
-    config.addinivalue_line(
-        "markers", "security: mark test as security test"
-    )
-    config.addinivalue_line(
-        "markers", "integration: mark test as integration test"
-    )
+    config.addinivalue_line("markers", "asyncio: mark test as async")
+    config.addinivalue_line("markers", "benchmark: mark test as performance benchmark")
+    config.addinivalue_line("markers", "security: mark test as security test")
+    config.addinivalue_line("markers", "integration: mark test as integration test")
 
 
 # ============= TEST STATISTICS =============

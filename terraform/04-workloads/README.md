@@ -53,4 +53,3 @@ terraform apply -var-file=terraform.tfvars
 ```bash
 ./scripts/deployment/smoke-lz.sh elevatediq.ai
 ```
-

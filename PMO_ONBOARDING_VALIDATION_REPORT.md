@@ -1,7 +1,7 @@
 # PMO Onboarding Validation Report
 
-**Date**: 2026-01-26  
-**Repository**: GCP-landing-zone-Portal  
+**Date**: 2026-01-26
+**Repository**: GCP-landing-zone-Portal
 **Status**: ✅ **READY FOR HUB ONBOARDING**
 
 ---
@@ -307,9 +307,9 @@ test -f pmo.yaml && echo "✅ pmo.yaml present" && yq '.project.name' pmo.yaml
 
 ## Sign-Off
 
-**Validated By**: GitHub Copilot  
-**Date**: 2026-01-26  
-**Validation Duration**: ~2 hours  
+**Validated By**: GitHub Copilot
+**Date**: 2026-01-26
+**Validation Duration**: ~2 hours
 **Result**: ✅ **APPROVED FOR HUB ONBOARDING** (pending GPG signing and label creation)
 
 **Next Review**: Upon PR submission to Hub

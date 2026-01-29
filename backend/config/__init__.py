@@ -1,3 +1,4 @@
+import json
 import os
 
 # Backend service metadata
@@ -38,13 +39,20 @@ ALLOWED_ORIGINS = [
 ]
 
 # Database configuration
-DATABASE_CONFIG = {"project": "portal-prod", "database": "(default)", "collection_prefix": "portal"}
+DATABASE_CONFIG = {
+    "project": "portal-prod",
+    "database": "(default)",
+    "collection_prefix": "portal"
+}
 
 # API configuration
 API_CONFIG = {
     "version": "v1",
-    "rate_limit": {"requests_per_minute": 100, "burst": 1000},
-    "timeout_seconds": 30,
+    "rate_limit": {
+        "requests_per_minute": 100,
+        "burst": 1000
+    },
+    "timeout_seconds": 30
 }
 
 # Integration with Hub
@@ -52,11 +60,15 @@ HUB_CONFIG = {
     "project_id": None,  # Set via environment variable
     "api_endpoint": "https://hub-api.landing-zone.io",
     "pubsub_topic": "landing-zone-portal-events",
-    "bigquery_dataset": "hub_analytics",
+    "bigquery_dataset": "hub_analytics"
 }
 
 # Logging configuration
-LOGGING_CONFIG = {"level": "INFO", "format": "json", "exclude_paths": ["/health", "/metrics"]}
+LOGGING_CONFIG = {
+    "level": "INFO",
+    "format": "json",
+    "exclude_paths": ["/health", "/metrics"]
+}
 
 __all__ = [
     "SERVICE_NAME",
@@ -64,7 +76,7 @@ __all__ = [
     "DATABASE_CONFIG",
     "API_CONFIG",
     "HUB_CONFIG",
-    "LOGGING_CONFIG",
+    "LOGGING_CONFIG"
 ]
 
 
@@ -80,6 +92,7 @@ try:
         "OAUTH_CLIENT_SECRET",
         "IAP_AUDIENCE",
         "REDIS_URL",
+        "PORTAL_AUTH_TOKEN",
     ]
 
     # Populate env vars only if they are not already set (local dev override supported)

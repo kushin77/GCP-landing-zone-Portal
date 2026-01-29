@@ -7,15 +7,15 @@ Implements:
 - Sliding window algorithm
 - Redis-backed for distributed systems
 """
+import logging
 import os
 import time
-import logging
-from typing import Optional, Callable
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import wraps
+from typing import Callable
 
-from fastapi import Request, HTTPException, status
+from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Configuration
 # ============================================================================
+
 
 @dataclass
 class RateLimitConfig:
@@ -36,11 +37,13 @@ class RateLimitConfig:
     burst_size: int = 10
 
     # Endpoint-specific overrides
-    endpoint_limits: dict = field(default_factory=lambda: {
-        "/api/v1/ai/query": {"per_minute": 10, "per_hour": 100},  # AI is expensive
-        "/api/v1/costs": {"per_minute": 30, "per_hour": 300},
-        "/health": {"per_minute": 1000, "per_hour": 10000},  # Health checks unlimited
-    })
+    endpoint_limits: dict = field(
+        default_factory=lambda: {
+            "/api/v1/ai/query": {"per_minute": 10, "per_hour": 100},  # AI is expensive
+            "/api/v1/costs": {"per_minute": 30, "per_hour": 300},
+            "/health": {"per_minute": 1000, "per_hour": 10000},  # Health checks unlimited
+        }
+    )
 
     # Whitelist
     whitelisted_ips: set = field(default_factory=set)
@@ -59,6 +62,7 @@ class RateLimitConfig:
 # ============================================================================
 # In-Memory Rate Limiter (for single instance)
 # ============================================================================
+
 
 class SlidingWindowRateLimiter:
     """
@@ -95,10 +99,7 @@ class SlidingWindowRateLimiter:
         current_time = time.time()
         cutoff = current_time - window_size
 
-        self._windows[window_key] = [
-            ts for ts in self._windows[window_key]
-            if ts > cutoff
-        ]
+        self._windows[window_key] = [ts for ts in self._windows[window_key] if ts > cutoff]
 
     def _periodic_cleanup(self):
         """Periodically clean up old entries to prevent memory growth."""
@@ -146,7 +147,7 @@ class SlidingWindowRateLimiter:
                 "limit": per_minute,
                 "remaining": 0,
                 "reset": int(current_time + retry_after),
-                "retry_after": int(retry_after)
+                "retry_after": int(retry_after),
             }
 
         # Check per-hour limit
@@ -160,7 +161,7 @@ class SlidingWindowRateLimiter:
                 "limit": per_hour,
                 "remaining": 0,
                 "reset": int(current_time + retry_after),
-                "retry_after": int(retry_after)
+                "retry_after": int(retry_after),
             }
 
         # Record this request
@@ -173,13 +174,14 @@ class SlidingWindowRateLimiter:
         return True, {
             "limit": per_minute,
             "remaining": per_minute - minute_count - 1,
-            "reset": int(current_time + 60)
+            "reset": int(current_time + 60),
         }
 
 
 # ============================================================================
 # Redis-Backed Rate Limiter (for distributed systems)
 # ============================================================================
+
 
 class RedisRateLimiter:
     """
@@ -231,13 +233,13 @@ class RedisRateLimiter:
                 "limit": per_minute,
                 "remaining": 0,
                 "reset": int(current_time + 60),
-                "retry_after": 60
+                "retry_after": 60,
             }
 
         return True, {
             "limit": per_minute,
             "remaining": per_minute - count,
-            "reset": int(current_time + 60)
+            "reset": int(current_time + 60),
         }
 
     def _get_client_id(self, request: Request) -> str:
@@ -261,6 +263,7 @@ class RedisRateLimiter:
 # Rate Limiting Middleware
 # ============================================================================
 
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """FastAPI middleware for rate limiting."""
 
@@ -280,20 +283,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
 
             from fastapi.responses import JSONResponse
+
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={
                     "error": True,
                     "error_code": "RATE_LIMIT_EXCEEDED",
                     "message": "Too many requests. Please slow down.",
-                    "retry_after": rate_info.get("retry_after", 60)
+                    "retry_after": rate_info.get("retry_after", 60),
                 },
                 headers={
                     "Retry-After": str(rate_info.get("retry_after", 60)),
                     "X-RateLimit-Limit": str(rate_info.get("limit", 0)),
                     "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(rate_info.get("reset", 0))
-                }
+                    "X-RateLimit-Reset": str(rate_info.get("reset", 0)),
+                },
             )
 
         # Process request
@@ -312,6 +316,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 # Decorator for endpoint-specific rate limiting
 # ============================================================================
 
+
 def rate_limit(requests_per_minute: int = 60, requests_per_hour: int = 1000):
     """
     Decorator for endpoint-specific rate limiting.
@@ -322,23 +327,24 @@ def rate_limit(requests_per_minute: int = 60, requests_per_hour: int = 1000):
         async def expensive_operation():
             ...
     """
+
     def decorator(func: Callable):
         # Store limits on function for middleware to read
-        func._rate_limit = {
-            "per_minute": requests_per_minute,
-            "per_hour": requests_per_hour
-        }
+        func._rate_limit = {"per_minute": requests_per_minute, "per_hour": requests_per_hour}
 
         @wraps(func)
         async def wrapper(*args, **kwargs):
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # ============================================================================
 # Factory function
 # ============================================================================
+
 
 def create_rate_limiter(redis_client=None) -> SlidingWindowRateLimiter:
     """Create appropriate rate limiter based on configuration."""

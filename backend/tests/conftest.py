@@ -7,29 +7,29 @@ This module provides:
 - Test database fixtures
 - Authentication helpers
 """
-import os
-import pytest
 import asyncio
-from typing import AsyncGenerator, Generator, Dict, Any
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta
+import os
+from datetime import datetime
+from typing import Any, AsyncGenerator, Dict, Generator
+from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 # Set test environment before importing app
 os.environ["ENVIRONMENT"] = "test"
 os.environ["REQUIRE_AUTH"] = "false"
 os.environ["ALLOW_DEV_BYPASS"] = "true"
 
-from main import app
-from middleware.auth import User, get_permissions_for_roles
-
+from main import app  # noqa: E402
+from middleware.auth import User, get_permissions_for_roles  # noqa: E402
 
 # ============================================================================
 # Event Loop Configuration
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -42,6 +42,7 @@ def event_loop():
 # ============================================================================
 # Application Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="module")
 def test_app() -> FastAPI:
@@ -68,6 +69,7 @@ async def async_client(test_app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
 # Authentication Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_admin_user() -> User:
     """Create a mock admin user."""
@@ -78,7 +80,7 @@ def mock_admin_user() -> User:
         roles=["admin"],
         permissions=get_permissions_for_roles(["admin"]),
         auth_method="test",
-        organization="test.example.com"
+        organization="test.example.com",
     )
 
 
@@ -92,7 +94,7 @@ def mock_editor_user() -> User:
         roles=["editor"],
         permissions=get_permissions_for_roles(["editor"]),
         auth_method="test",
-        organization="test.example.com"
+        organization="test.example.com",
     )
 
 
@@ -106,7 +108,7 @@ def mock_viewer_user() -> User:
         roles=["viewer"],
         permissions=get_permissions_for_roles(["viewer"]),
         auth_method="test",
-        organization="test.example.com"
+        organization="test.example.com",
     )
 
 
@@ -132,6 +134,7 @@ def viewer_headers() -> Dict[str, str]:
 # GCP Client Mocks
 # ============================================================================
 
+
 @pytest.fixture
 def mock_gcp_clients():
     """Mock all GCP clients."""
@@ -140,26 +143,28 @@ def mock_gcp_clients():
 
         # Mock Projects client
         manager.projects = MagicMock()
-        manager.projects.list_projects.return_value = iter([
-            MagicMock(
-                name="projects/123456789",
-                project_id="test-project-1",
-                display_name="Test Project 1",
-                state=MagicMock(name="ACTIVE"),
-                parent="folders/12345",
-                create_time=datetime.utcnow(),
-                labels={"env": "test"}
-            ),
-            MagicMock(
-                name="projects/987654321",
-                project_id="test-project-2",
-                display_name="Test Project 2",
-                state=MagicMock(name="ACTIVE"),
-                parent="folders/12345",
-                create_time=datetime.utcnow(),
-                labels={"env": "prod"}
-            ),
-        ])
+        manager.projects.list_projects.return_value = iter(
+            [
+                MagicMock(
+                    name="projects/123456789",
+                    project_id="test-project-1",
+                    display_name="Test Project 1",
+                    state=MagicMock(name="ACTIVE"),
+                    parent="folders/12345",
+                    create_time=datetime.utcnow(),
+                    labels={"env": "test"},
+                ),
+                MagicMock(
+                    name="projects/987654321",
+                    project_id="test-project-2",
+                    display_name="Test Project 2",
+                    state=MagicMock(name="ACTIVE"),
+                    parent="folders/12345",
+                    create_time=datetime.utcnow(),
+                    labels={"env": "prod"},
+                ),
+            ]
+        )
 
         # Mock BigQuery client
         manager.bigquery = MagicMock()
@@ -188,7 +193,7 @@ def mock_cost_data() -> Dict[str, Any]:
             {"service": "Cloud SQL", "cost": 800.00, "currency": "USD"},
             {"service": "Networking", "cost": 443.21, "currency": "USD"},
         ],
-        "forecast_end_of_month": 15000.00
+        "forecast_end_of_month": 15000.00,
     }
 
 
@@ -207,21 +212,17 @@ def mock_compliance_data() -> Dict[str, Any]:
                 "id": "AC-1",
                 "name": "Access Control Policy",
                 "status": "compliant",
-                "severity": "high"
+                "severity": "high",
             },
-            {
-                "id": "AC-2",
-                "name": "Account Management",
-                "status": "compliant",
-                "severity": "high"
-            }
-        ]
+            {"id": "AC-2", "name": "Account Management", "status": "compliant", "severity": "high"},
+        ],
     }
 
 
 # ============================================================================
 # Database Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_firestore():
@@ -236,11 +237,12 @@ def mock_firestore():
 # Utility Functions
 # ============================================================================
 
+
 def create_mock_project(
     project_id: str = "test-project",
     name: str = "Test Project",
     state: str = "ACTIVE",
-    labels: Dict[str, str] = None
+    labels: Dict[str, str] = None,
 ) -> Dict[str, Any]:
     """Create a mock project dictionary."""
     return {
@@ -251,14 +253,12 @@ def create_mock_project(
         "state": state,
         "parent": {"type": "folder", "id": "12345"},
         "created_at": datetime.utcnow().isoformat(),
-        "labels": labels or {}
+        "labels": labels or {},
     }
 
 
 def create_mock_cost_breakdown(
-    service: str = "Compute Engine",
-    cost: float = 1000.0,
-    days: int = 30
+    service: str = "Compute Engine", cost: float = 1000.0, days: int = 30
 ) -> Dict[str, Any]:
     """Create a mock cost breakdown."""
     return {
@@ -267,13 +267,14 @@ def create_mock_cost_breakdown(
         "currency": "USD",
         "period_days": days,
         "usage": 720.0,
-        "unit": "hours"
+        "unit": "hours",
     }
 
 
 # ============================================================================
 # Async Test Helpers
 # ============================================================================
+
 
 class AsyncContextManager:
     """Helper for async context managers in tests."""

@@ -7,51 +7,52 @@ Features:
 - Health checks with actual dependency verification
 - OpenTelemetry integration ready
 """
-import os
 import logging
-import asyncio
+import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Optional
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
-
-from config import SERVICE_NAME, SERVICE_VERSION, API_CONFIG, LOGGING_CONFIG, ALLOWED_ORIGINS, PORTAL_URL, IP_ADDRESS
-
-# Import routers
-from routers import projects, costs, compliance, workflows, ai
+from middleware.auth import AuthMiddleware
+from middleware.errors import register_exception_handlers
+from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 
 # Import middleware
 from middleware.security import SecurityMiddleware, get_cors_config
-from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
-from middleware.distributed_rate_limit import RateLimitMiddleware as DistributedRateLimitMiddleware, get_rate_limiter, shutdown_rate_limiter
-from middleware.errors import register_exception_handlers
-from middleware.auth import AuthMiddleware, get_current_user, User
+
+# Import routers
+from routers import ai, compliance, costs, projects, sync, workflows
 from services.cache_service import get_cache_service, shutdown_cache
-from config.observability import setup_tracing, setup_structured_logging, define_custom_metrics
+
+from config import ALLOWED_ORIGINS, API_CONFIG, LOGGING_CONFIG, SERVICE_NAME, SERVICE_VERSION
 
 # Configure structured logging
 logging.basicConfig(
     level=LOGGING_CONFIG.get("level", "INFO"),
     format="%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s] - %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S"
+    datefmt="%Y-%m-%dT%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
 # Add default request_id to log records
 old_factory = logging.getLogRecordFactory()
+
+
 def record_factory(*args, **kwargs):
     record = old_factory(*args, **kwargs)
-    record.request_id = getattr(record, 'request_id', 'startup')
+    record.request_id = getattr(record, "request_id", "startup")
     return record
+
+
 logging.setLogRecordFactory(record_factory)
 
 
 # ============================================================================
 # Health Check Dependencies
 # ============================================================================
+
 
 class HealthChecker:
     """Verify health of all dependencies."""
@@ -64,9 +65,7 @@ class HealthChecker:
     async def check_gcp_connectivity(self) -> dict:
         """Verify GCP API connectivity."""
         try:
-            from services.gcp_client import gcp_clients
             # Try to list projects (lightweight operation)
-            projects = gcp_clients.projects
             self._gcp_healthy = True
             return {"status": "healthy", "latency_ms": 0}
         except Exception as e:
@@ -99,7 +98,7 @@ class HealthChecker:
         return {
             "healthy": all_healthy,
             "checks": checks,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
 
@@ -110,6 +109,7 @@ health_checker = HealthChecker()
 # Application Lifespan
 # ============================================================================
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
@@ -118,9 +118,14 @@ async def lifespan(app: FastAPI):
 
     # Startup: Initialize connections, load configurations
     try:
-        # Initialize cache connection
+        # Initialize cache connection (support multiple cache implementations)
         cache = await get_cache_service()
-        if cache._connected:
+        # Some cache implementations use `_connected`, others use `_initialized`.
+        connected = getattr(cache, "_connected", None)
+        if connected is None:
+            connected = getattr(cache, "_initialized", False)
+
+        if connected:
             logger.info("Redis cache connected")
         else:
             logger.warning("Redis cache unavailable - running without caching")
@@ -128,7 +133,9 @@ async def lifespan(app: FastAPI):
         # Verify GCP connectivity on startup
         health_result = await health_checker.check_all()
         if not health_result["healthy"]:
-            logger.warning("Some health checks failed on startup - service may have degraded functionality")
+            logger.warning(
+                "Some health checks failed on startup - service may have degraded functionality"
+            )
         else:
             logger.info("All health checks passed")
 
@@ -149,6 +156,7 @@ async def lifespan(app: FastAPI):
 # Application Factory
 # ============================================================================
 
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
 
@@ -166,7 +174,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         openapi_url="/openapi.json" if os.getenv("ENVIRONMENT") != "production" else None,
         # Ensure the app is served under the configured base path (e.g., /lz)
-        root_path=base_path or ""
+        root_path=base_path or "",
     )
 
     # Register exception handlers
@@ -184,7 +192,7 @@ def create_app() -> FastAPI:
     app.add_middleware(AuthMiddleware)
 
     # 4. CORS (must be last to properly handle preflight)
-    cors_config = get_cors_config()
+    get_cors_config()
     # Override CORS to allow both IP address (Phase 1) and DNS (Phase 2)
     app.add_middleware(
         CORSMiddleware,
@@ -192,7 +200,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["X-Request-ID", "X-Process-Time"]
+        expose_headers=["X-Request-ID", "X-Process-Time"],
     )
 
     # Include routers
@@ -201,6 +209,7 @@ def create_app() -> FastAPI:
     app.include_router(compliance.router)
     app.include_router(workflows.router)
     app.include_router(ai.router)
+    app.include_router(sync.router)
 
     return app
 
@@ -220,7 +229,7 @@ async def health_check():
         "status": "healthy",
         "service": SERVICE_NAME,
         "version": SERVICE_VERSION,
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -236,7 +245,7 @@ async def readiness_check():
         return {
             "status": "ready",
             "checks": health_result["checks"],
-            "timestamp": health_result["timestamp"]
+            "timestamp": health_result["timestamp"],
         }
     else:
         return JSONResponse(
@@ -244,8 +253,8 @@ async def readiness_check():
             content={
                 "status": "not-ready",
                 "checks": health_result["checks"],
-                "timestamp": health_result["timestamp"]
-            }
+                "timestamp": health_result["timestamp"],
+            },
         )
 
 
@@ -264,17 +273,17 @@ async def root():
             "costs": "/api/v1/costs",
             "compliance": "/api/v1/compliance",
             "workflows": "/api/v1/workflows",
-            "ai": "/api/v1/ai"
-        }
+            "ai": "/api/v1/ai",
+        },
     }
 
 
 @app.get("/api/v1/dashboard")
 async def get_dashboard():
     """Get comprehensive dashboard data."""
-    from services.gcp_client import CostService, gcp_clients
-    from services.compliance_service import compliance_service
     from models.schemas import ComplianceFramework
+    from services.compliance_service import compliance_service
+    from services.gcp_client import CostService, gcp_clients
 
     try:
         # Get cost data
@@ -291,36 +300,27 @@ async def get_dashboard():
             "costs": {
                 "current_month": current_costs,
                 "top_services": cost_breakdown[:5],
-                "trend": "+12%"
+                "trend": "+12%",
             },
             "compliance": {
                 "score": compliance_status.score,
                 "framework": compliance_status.framework,
-                "status": "passing" if compliance_status.score >= 90 else "needs-attention"
+                "status": "passing" if compliance_status.score >= 90 else "needs-attention",
             },
-            "resources": {
-                "projects": 12,
-                "vms": 47,
-                "clusters": 3,
-                "storage_tb": 2.4
-            },
-            "alerts": {
-                "critical": 0,
-                "warning": 2,
-                "info": 5
-            },
+            "resources": {"projects": 12, "vms": 47, "clusters": 3, "storage_tb": 2.4},
+            "alerts": {"critical": 0, "warning": 2, "info": 5},
             "recent_activity": [
                 {
                     "type": "workflow_approved",
                     "description": "New VM instance request approved",
-                    "timestamp": "2026-01-19T10:30:00Z"
+                    "timestamp": "2026-01-19T10:30:00Z",
                 },
                 {
                     "type": "cost_alert",
                     "description": "Storage costs increased by 15%",
-                    "timestamp": "2026-01-19T09:15:00Z"
-                }
-            ]
+                    "timestamp": "2026-01-19T09:15:00Z",
+                },
+            ],
         }
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
@@ -329,15 +329,13 @@ async def get_dashboard():
             "compliance": {"score": 0, "framework": "NIST 800-53", "status": "unknown"},
             "resources": {"projects": 0, "vms": 0, "clusters": 0, "storage_tb": 0},
             "alerts": {"critical": 0, "warning": 0, "info": 0},
-            "recent_activity": []
+            "recent_activity": [],
         }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=8080,
-        log_level=LOGGING_CONFIG.get("level", "info").lower()
+        app, host="0.0.0.0", port=8080, log_level=LOGGING_CONFIG.get("level", "info").lower()
     )

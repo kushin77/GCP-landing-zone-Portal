@@ -1,9 +1,9 @@
 # GCP Landing Zone Portal - PMO Onboarding Checklist
 
-**Status**: 🚀 **READY FOR HUB ONBOARDING**  
-**Type**: Step-by-Step Runbook  
-**Target Duration**: 2-3 hours  
-**Audience**: Portal team, Platform Engineering, PMO  
+**Status**: 🚀 **READY FOR HUB ONBOARDING**
+**Type**: Step-by-Step Runbook
+**Target Duration**: 2-3 hours
+**Audience**: Portal team, Platform Engineering, PMO
 **Last Updated**: 2026-01-26
 
 ---
@@ -70,7 +70,7 @@ pmo_mandates:
   phase_5_governance: ✅ PASS
 ```
 
-**Validation**: 
+**Validation**:
 ```bash
 # Verify pmo.yaml exists and is valid
 test -f pmo.yaml && echo "✅ pmo.yaml present"
@@ -579,7 +579,7 @@ gh issue create \
 
 ### Enforcement Gates Status
 - [x] Phase 1: Structural Cleanup — ✅ PASS
-- [x] Phase 2: Documentation — ✅ PASS  
+- [x] Phase 2: Documentation — ✅ PASS
 - [x] Phase 3: Security & GPG — ✅ PASS
 - [x] Phase 4: 5-Layer Folder Depth — ✅ PASS
 - [x] Phase 5: Governance & Evidence — ✅ PASS

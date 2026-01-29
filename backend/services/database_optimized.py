@@ -11,10 +11,9 @@ Provides:
 """
 import asyncio
 import logging
-from typing import List, Dict, Any, Optional, Callable, TypeVar
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
-from google.cloud import firestore
 from google.cloud.firestore_asyncio import AsyncClient
 
 logger = logging.getLogger(__name__)
@@ -25,6 +24,7 @@ T = TypeVar("T")
 # ============================================================================
 # Connection Pool
 # ============================================================================
+
 
 class FirestorePool:
     """Connection pool for Firestore with configurable size."""
@@ -57,10 +57,7 @@ class FirestorePool:
                 client = AsyncClient(project=self.project_id)
                 await self._pool.put(client)
 
-            logger.info(
-                f"Firestore pool initialized: "
-                f"min={self.min_size}, max={self.max_size}"
-            )
+            logger.info(f"Firestore pool initialized: " f"min={self.min_size}, max={self.max_size}")
 
     async def acquire(self) -> AsyncClient:
         """Acquire a connection from the pool."""
@@ -77,13 +74,9 @@ class FirestorePool:
                 self._acquired_count += 1
             else:
                 # Wait for connection to become available
-                logger.warning(
-                    f"Pool at capacity ({self.max_size}), waiting for connection"
-                )
+                logger.warning(f"Pool at capacity ({self.max_size}), waiting for connection")
                 try:
-                    client = await asyncio.wait_for(
-                        self._pool.get(), timeout=self.timeout_seconds
-                    )
+                    client = await asyncio.wait_for(self._pool.get(), timeout=self.timeout_seconds)
                 except asyncio.TimeoutError:
                     raise RuntimeError("Firestore connection pool timeout")
 
@@ -117,15 +110,14 @@ class FirestorePool:
 # Database Operations
 # ============================================================================
 
+
 class Database:
     """High-level database operations with optimization."""
 
     def __init__(self, pool: FirestorePool):
         self.pool = pool
 
-    async def get_document(
-        self, collection: str, document_id: str
-    ) -> Optional[Dict[str, Any]]:
+    async def get_document(self, collection: str, document_id: str) -> Optional[Dict[str, Any]]:
         """Get a single document."""
         client = await self.pool.acquire()
         try:
@@ -150,12 +142,9 @@ class Database:
         client = await self.pool.acquire()
         try:
             # Use transaction for consistent batch read
-            async with client.transaction() as transaction:
+            async with client.transaction():
                 docs = {}
-                refs = [
-                    client.collection(collection).document(doc_id)
-                    for doc_id in document_ids
-                ]
+                refs = [client.collection(collection).document(doc_id) for doc_id in document_ids]
 
                 # Batch get (more efficient than individual gets)
                 snapshots = await client.get_documents(refs)
@@ -219,9 +208,7 @@ class Database:
         finally:
             await self.pool.release(client)
 
-    async def create_document(
-        self, collection: str, document_id: str, data: Dict[str, Any]
-    ) -> str:
+    async def create_document(self, collection: str, document_id: str, data: Dict[str, Any]) -> str:
         """Create a new document."""
         client = await self.pool.acquire()
         try:
@@ -232,9 +219,7 @@ class Database:
                 "updated_at": datetime.utcnow(),
             }
 
-            await client.collection(collection).document(document_id).set(
-                data_with_timestamp
-            )
+            await client.collection(collection).document(document_id).set(data_with_timestamp)
             return document_id
         finally:
             await self.pool.release(client)
@@ -251,15 +236,11 @@ class Database:
                 "updated_at": datetime.utcnow(),
             }
 
-            await client.collection(collection).document(document_id).update(
-                data_with_timestamp
-            )
+            await client.collection(collection).document(document_id).update(data_with_timestamp)
         finally:
             await self.pool.release(client)
 
-    async def delete_document(
-        self, collection: str, document_id: str
-    ) -> None:
+    async def delete_document(self, collection: str, document_id: str) -> None:
         """Delete a document."""
         client = await self.pool.acquire()
         try:
@@ -267,9 +248,7 @@ class Database:
         finally:
             await self.pool.release(client)
 
-    async def batch_update(
-        self, operations: List[tuple]
-    ) -> None:
+    async def batch_update(self, operations: List[tuple]) -> None:
         """
         Batch multiple write operations atomically.
 
@@ -318,13 +297,12 @@ class Database:
 # Query Optimization Helpers
 # ============================================================================
 
+
 class QueryOptimizer:
     """Helpers for optimized queries."""
 
     @staticmethod
-    def build_batch_query(
-        collection: str, ids: List[str]
-    ) -> List[str]:
+    def build_batch_query(collection: str, ids: List[str]) -> List[str]:
         """Build batch query by splitting large lists."""
         # Firestore has limit of 10 documents per batch
         batch_size = 10

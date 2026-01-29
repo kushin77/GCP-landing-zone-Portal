@@ -2,17 +2,17 @@
 Enhanced authentication with proper JWT validation, RBAC, and audit logging.
 Fixes issue #43: Authentication & Authorization System vulnerabilities.
 """
-import os
-import logging
-import time
 import json
-from typing import Optional, List, Dict, Any
+import logging
+import os
+import time
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from fastapi import Request, HTTPException, Depends
+import google.auth.exceptions
+from fastapi import Depends, HTTPException, Request
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
-import google.auth.exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Configuration
 # ============================================================================
+
 
 class AuthConfig:
     """Authentication configuration with production safety."""
@@ -37,15 +38,14 @@ class AuthConfig:
     TOKEN_EXPIRY_BUFFER_SECONDS = 60
 
     # Deny dev bypass in production-like environments
-    ALLOW_DEV_BYPASS = (
-        os.getenv("ALLOW_DEV_BYPASS", "false").lower() == "true"
-        and ENVIRONMENT in ("development", "test", "local")  # NEVER staging/production
-    )
+    ALLOW_DEV_BYPASS = os.getenv("ALLOW_DEV_BYPASS", "false").lower() == "true" and ENVIRONMENT in (
+        "development",
+        "test",
+        "local",
+    )  # NEVER staging/production
 
     # Admin emails
-    ADMIN_EMAILS = [
-        e.strip() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()
-    ]
+    ADMIN_EMAILS = [e.strip() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]
 
     @classmethod
     def validate(cls):
@@ -59,8 +59,10 @@ class AuthConfig:
 # Roles and Permissions
 # ============================================================================
 
+
 class Role:
     """Role constants."""
+
     ADMIN = "admin"
     EDITOR = "editor"
     VIEWER = "viewer"
@@ -69,6 +71,7 @@ class Role:
 
 class Permission:
     """Permission constants - granular access control."""
+
     # Projects
     PROJECTS_READ = "projects:read"
     PROJECTS_CREATE = "projects:create"
@@ -150,6 +153,7 @@ def get_permissions_for_roles(roles: List[str]) -> List[str]:
 # User Model
 # ============================================================================
 
+
 class AuthenticatedUser:
     """Authenticated user with validated claims."""
 
@@ -199,6 +203,7 @@ class AuthenticatedUser:
 # ============================================================================
 # JWT Validation
 # ============================================================================
+
 
 class JWTValidator:
     """Validates JWT tokens with signature verification."""
@@ -268,6 +273,7 @@ class JWTValidator:
 # Audit Logging
 # ============================================================================
 
+
 class AuditLogger:
     """Immutable audit logging for security events."""
 
@@ -334,6 +340,7 @@ class AuditLogger:
 # Authentication Functions
 # ============================================================================
 
+
 def extract_user_from_iap_claims(claims: Dict[str, Any]) -> AuthenticatedUser:
     """Extract user info from IAP JWT claims."""
     user_email = claims.get("email", "unknown@example.com")
@@ -380,6 +387,7 @@ def extract_user_from_oauth_claims(claims: Dict[str, Any]) -> AuthenticatedUser:
 # ============================================================================
 # FastAPI Dependencies
 # ============================================================================
+
 
 async def get_current_user(request: Request) -> Optional[AuthenticatedUser]:
     """
@@ -457,9 +465,7 @@ async def require_permission(permission: str):
 
     async def check_permission(user: AuthenticatedUser = Depends(get_current_user)):
         if not user.has_permission(permission):
-            logger.warning(
-                f"Permission denied for user {user.email}: required {permission}"
-            )
+            logger.warning(f"Permission denied for user {user.email}: required {permission}")
             raise HTTPException(status_code=403, detail=f"Permission denied: {permission}")
         return user
 

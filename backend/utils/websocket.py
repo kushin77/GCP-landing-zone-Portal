@@ -1,11 +1,10 @@
 """
 WebSocket support for real-time updates.
 """
-from fastapi import WebSocket, WebSocketDisconnect
-from typing import List, Dict
-import json
-import asyncio
 import logging
+from typing import Dict, List
+
+from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
@@ -80,29 +79,17 @@ manager = ConnectionManager()
 
 async def notify_cost_update(data: dict):
     """Notify all clients of cost updates."""
-    await manager.broadcast({
-        "type": "cost_update",
-        "data": data
-    })
+    await manager.broadcast({"type": "cost_update", "data": data})
 
 
 async def notify_compliance_change(data: dict):
     """Notify all clients of compliance changes."""
-    await manager.broadcast({
-        "type": "compliance_change",
-        "data": data
-    })
+    await manager.broadcast({"type": "compliance_change", "data": data})
 
 
 async def notify_workflow_update(workflow_id: str, status: str, user_id: str = None):
     """Notify about workflow status changes."""
-    message = {
-        "type": "workflow_update",
-        "data": {
-            "workflow_id": workflow_id,
-            "status": status
-        }
-    }
+    message = {"type": "workflow_update", "data": {"workflow_id": workflow_id, "status": status}}
 
     if user_id:
         await manager.send_to_user(message, user_id)
