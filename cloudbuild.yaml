@@ -40,6 +40,11 @@ steps:
         trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed backend/
     waitFor: ['-']
 
+  - name: 'returntocorp/semgrep'
+    id: 'semgrep-sast'
+    args: ['semgrep', 'scan', '--config', 'auto', '--error']
+    waitFor: ['-']
+
   - name: 'node:20-slim'
     id: 'snyk-test'
     entrypoint: 'bash'
@@ -413,4 +418,3 @@ tags:
   - 'portal'
   - 'ci-cd'
 
-```
