@@ -10,19 +10,17 @@ Features:
 - Metrics and observability
 """
 
-import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Dict, List
 from functools import wraps
+from typing import Any, Dict, List, Optional
 
-import redis
 import redis.asyncio as aioredis
-from redis.asyncio import Redis
-from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
 from opentelemetry import metrics, trace
+from redis.asyncio import Redis
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import RedisError
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +28,12 @@ logger = logging.getLogger(__name__)
 meter = metrics.get_meter(__name__)
 cache_hits = meter.create_counter("cache_hits_total", unit="1", description="Cache hits")
 cache_misses = meter.create_counter("cache_misses_total", unit="1", description="Cache misses")
-cache_evictions = meter.create_counter("cache_evictions_total", unit="1", description="Cache evictions")
-cache_operations = meter.create_histogram("cache_operation_duration_ms", unit="ms", description="Cache operation latency")
+cache_evictions = meter.create_counter(
+    "cache_evictions_total", unit="1", description="Cache evictions"
+)
+cache_operations = meter.create_histogram(
+    "cache_operation_duration_ms", unit="ms", description="Cache operation latency"
+)
 
 # Tracer
 tracer = trace.get_tracer(__name__)
@@ -276,6 +278,7 @@ async def get_cache_service() -> CacheService:
         _cache_service = CacheService()
         # Get Redis URL from environment
         import os
+
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         await _cache_service.initialize(redis_url)
 
@@ -300,6 +303,7 @@ def cache_wrapper(ttl: int = CacheConfig.TTL_DASHBOARD):
         async def expensive_query():
             return data
     """
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -323,4 +327,5 @@ def cache_wrapper(ttl: int = CacheConfig.TTL_DASHBOARD):
             return result
 
         return wrapper
+
     return decorator

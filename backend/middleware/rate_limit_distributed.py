@@ -10,13 +10,12 @@ Provides:
 - OWASP controls
 """
 import logging
-from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
 import time
+from typing import Optional
 
 import aioredis
+from fastapi import Request
 from pydantic import BaseModel, Field, validator
-from fastapi import HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +24,17 @@ logger = logging.getLogger(__name__)
 # Rate Limiting
 # ============================================================================
 
+
 class RateLimitConfig:
     """Rate limit configuration."""
 
     # Per-user limits
     USER_LIMIT_REQUESTS = 1000  # requests
-    USER_LIMIT_WINDOW = 3600    # seconds (1 hour)
+    USER_LIMIT_WINDOW = 3600  # seconds (1 hour)
 
     # Per-IP limits
-    IP_LIMIT_REQUESTS = 10000   # requests
-    IP_LIMIT_WINDOW = 3600      # seconds (1 hour)
+    IP_LIMIT_REQUESTS = 10000  # requests
+    IP_LIMIT_WINDOW = 3600  # seconds (1 hour)
 
     # Endpoint-specific limits
     ENDPOINT_LIMITS = {
@@ -51,9 +51,7 @@ class DistributedRateLimiter:
     def __init__(self, redis: aioredis.Redis):
         self.redis = redis
 
-    async def check_limit(
-        self, key: str, limit: int, window: int
-    ) -> bool:
+    async def check_limit(self, key: str, limit: int, window: int) -> bool:
         """
         Check if request is within rate limit.
 
@@ -90,9 +88,7 @@ class DistributedRateLimiter:
 
         return True
 
-    async def get_remaining(
-        self, key: str, limit: int, window: int
-    ) -> tuple[int, int]:
+    async def get_remaining(self, key: str, limit: int, window: int) -> tuple[int, int]:
         """
         Get remaining requests and reset time.
 
@@ -100,7 +96,7 @@ class DistributedRateLimiter:
             (remaining_requests, seconds_until_reset)
         """
         now = time.time()
-        window_start = now - window
+        now - window
 
         # Count requests in current window
         count = await self.redis.zcard(key)
@@ -132,28 +128,17 @@ class DistributedRateLimiter:
 # Input Validation
 # ============================================================================
 
+
 class PaginationParams(BaseModel):
     """Paginated query parameters with validation."""
 
-    page: int = Field(
-        default=1,
-        ge=1,
-        le=10000,
-        description="Page number"
-    )
+    page: int = Field(default=1, ge=1, le=10000, description="Page number")
 
     limit: int = Field(
-        default=50,
-        ge=1,
-        le=100,  # Max 100 items per page
-        description="Items per page (1-100)"
+        default=50, ge=1, le=100, description="Items per page (1-100)"  # Max 100 items per page
     )
 
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Offset (calculated from page/limit)"
-    )
+    offset: int = Field(default=0, ge=0, description="Offset (calculated from page/limit)")
 
     @validator("offset", pre=True, always=True)
     def calculate_offset(cls, v, values):
@@ -165,110 +150,57 @@ class PaginationParams(BaseModel):
 class ProjectQueryParams(BaseModel):
     """Project query parameters with validation."""
 
-    days: int = Field(
-        default=30,
-        ge=1,
-        le=365,
-        description="Number of days to query (1-365)"
-    )
+    days: int = Field(default=30, ge=1, le=365, description="Number of days to query (1-365)")
 
     project_id: Optional[str] = Field(
         default=None,
         regex=r"^[a-z0-9\-]{1,30}$",  # GCP project ID format
-        description="Project ID to filter by"
+        description="Project ID to filter by",
     )
 
-    status: Optional[str] = Field(
-        default=None,
-        regex=r"^[a-z\-]+$",
-        description="Project status"
-    )
+    status: Optional[str] = Field(default=None, regex=r"^[a-z\-]+$", description="Project status")
 
-    page: int = Field(
-        default=1,
-        ge=1,
-        le=10000,
-        description="Page number"
-    )
+    page: int = Field(default=1, ge=1, le=10000, description="Page number")
 
-    limit: int = Field(
-        default=50,
-        ge=1,
-        le=100,
-        description="Items per page"
-    )
+    limit: int = Field(default=50, ge=1, le=100, description="Items per page")
 
 
 class CostQueryParams(BaseModel):
     """Cost query parameters with validation."""
 
-    days: int = Field(
-        default=30,
-        ge=1,
-        le=365,
-        description="Days to query"
-    )
+    days: int = Field(default=30, ge=1, le=365, description="Days to query")
 
     project_id: Optional[str] = Field(
-        default=None,
-        regex=r"^[a-z0-9\-]{1,30}$",
-        description="Project ID"
+        default=None, regex=r"^[a-z0-9\-]{1,30}$", description="Project ID"
     )
 
-    min_cost: float = Field(
-        default=0,
-        ge=0,
-        le=1000000,
-        description="Minimum cost filter"
-    )
+    min_cost: float = Field(default=0, ge=0, le=1000000, description="Minimum cost filter")
 
-    max_cost: float = Field(
-        default=1000000,
-        ge=0,
-        le=1000000,
-        description="Maximum cost filter"
-    )
+    max_cost: float = Field(default=1000000, ge=0, le=1000000, description="Maximum cost filter")
 
-    page: int = Field(
-        default=1,
-        ge=1,
-        le=10000,
-        description="Page number"
-    )
+    page: int = Field(default=1, ge=1, le=10000, description="Page number")
 
-    limit: int = Field(
-        default=50,
-        ge=1,
-        le=100,
-        description="Items per page"
-    )
+    limit: int = Field(default=50, ge=1, le=100, description="Items per page")
 
 
 class ComplianceScanParams(BaseModel):
     """Compliance scan parameters with validation."""
 
     frameworks: list[str] = Field(
-        default=[],
-        max_items=10,
-        description="Compliance frameworks to scan"
+        default=[], max_items=10, description="Compliance frameworks to scan"
     )
 
     severity: Optional[str] = Field(
-        default=None,
-        regex=r"^(critical|high|medium|low)$",
-        description="Minimum severity level"
+        default=None, regex=r"^(critical|high|medium|low)$", description="Minimum severity level"
     )
 
-    project_ids: list[str] = Field(
-        default=[],
-        max_items=100,
-        description="Project IDs to scan"
-    )
+    project_ids: list[str] = Field(default=[], max_items=100, description="Project IDs to scan")
 
 
 # ============================================================================
 # Request Validation Middleware
 # ============================================================================
+
 
 class RequestValidator:
     """Validates HTTP requests."""
@@ -290,8 +222,7 @@ class RequestValidator:
             length = int(content_length)
             if length > RequestValidator.MAX_CONTENT_LENGTH:
                 logger.warning(
-                    f"Content-Length exceeded: {length} > "
-                    f"{RequestValidator.MAX_CONTENT_LENGTH}"
+                    f"Content-Length exceeded: {length} > " f"{RequestValidator.MAX_CONTENT_LENGTH}"
                 )
                 return False
         except ValueError:
@@ -318,8 +249,7 @@ class RequestValidator:
         # Check header count
         if len(request.headers) > RequestValidator.MAX_HEADERS:
             logger.warning(
-                f"Too many headers: {len(request.headers)} > "
-                f"{RequestValidator.MAX_HEADERS}"
+                f"Too many headers: {len(request.headers)} > " f"{RequestValidator.MAX_HEADERS}"
             )
             return False
 

@@ -11,24 +11,20 @@ Layers:
 4. BigQuery (historical trends & analytics)
 """
 
-import asyncio
-import json
 import logging
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from google.cloud import asset_v1, container_v1, compute_v1
-from google.cloud import pubsub_v1
-from google.cloud import logging as cloud_logging
-import aiohttp
+from google.cloud import asset_v1, compute_v1, container_v1, pubsub_v1
 
 logger = logging.getLogger(__name__)
 
 
 class SyncLayerType(str, Enum):
     """Sync layer types."""
+
     GIT = "git"
     API = "api"
     PUBSUB = "pubsub"
@@ -37,6 +33,7 @@ class SyncLayerType(str, Enum):
 
 class SyncStatus(str, Enum):
     """Sync operation status."""
+
     SUCCESS = "success"
     IN_PROGRESS = "in_progress"
     FAILED = "failed"
@@ -46,6 +43,7 @@ class SyncStatus(str, Enum):
 @dataclass
 class SyncMetadata:
     """Metadata for a sync operation."""
+
     layer: SyncLayerType
     status: SyncStatus
     last_sync: datetime
@@ -72,6 +70,7 @@ class SyncMetadata:
 @dataclass
 class InfrastructureProject:
     """GCP Project in Landing Zone."""
+
     project_id: str
     project_name: str
     parent: str
@@ -82,6 +81,7 @@ class InfrastructureProject:
 @dataclass
 class InfrastructureVPC:
     """VPC Network in Landing Zone."""
+
     name: str
     self_link: str
     auto_create_subnets: bool
@@ -92,6 +92,7 @@ class InfrastructureVPC:
 @dataclass
 class InfrastructureInstance:
     """Compute Instance in Landing Zone."""
+
     name: str
     zone: str
     machine_type: str
@@ -104,6 +105,7 @@ class InfrastructureInstance:
 @dataclass
 class ComplianceStatus:
     """Compliance assessment."""
+
     framework: str
     score: float  # 0-1
     violations_count: int
@@ -114,6 +116,7 @@ class ComplianceStatus:
 @dataclass
 class LZInfrastructureState:
     """Complete Landing Zone infrastructure state."""
+
     timestamp: datetime
     projects: List[InfrastructureProject]
     vpcs: List[InfrastructureVPC]
@@ -222,7 +225,9 @@ class LZSyncService:
                 metadata=metadata,
             )
 
-            logger.info(f"Infrastructure sync completed: {items_synced} items synced in {sync_duration}s")
+            logger.info(
+                f"Infrastructure sync completed: {items_synced} items synced in {sync_duration}s"
+            )
             return state
 
         except Exception as e:
@@ -232,16 +237,6 @@ class LZSyncService:
     async def _get_projects(self) -> tuple[List[InfrastructureProject], int]:
         """Get all GCP projects in Landing Zone."""
         try:
-            query = """
-            SELECT
-              resource.name,
-              resource.displayName,
-              resource.parent,
-              resource.labels
-            FROM `cloudresourcemanager.googleapis.com/Project`
-            WHERE resource.state = 'ACTIVE'
-            """
-
             request = asset_v1.SearchAllResourcesRequest(
                 scope=self.gcp_parent or f"projects/{self.project_id}",
                 asset_types=["cloudresourcemanager.googleapis.com/Project"],
@@ -424,58 +419,5 @@ class LZSyncService:
         return self.sync_history
 
 
-# FastAPI route handler
-from fastapi import APIRouter, HTTPException
-
-router = APIRouter(prefix="/api/v1/sync", tags=["sync"])
-sync_service = None  # Initialize in app startup
-
-
-@router.get("/infrastructure-state")
-async def get_infrastructure_state():
-    """Get latest synced infrastructure state."""
-    if not sync_service:
-        raise HTTPException(status_code=503, detail="Sync service not initialized")
-
-    try:
-        state = await sync_service.sync_infrastructure_state()
-        return state.to_dict()
-    except Exception as e:
-        logger.error(f"Failed to get infrastructure state: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/sync-status")
-async def get_sync_status():
-    """Get status of all sync layers."""
-    if not sync_service:
-        raise HTTPException(status_code=503, detail="Sync service not initialized")
-
-    status = sync_service.get_all_sync_status()
-    return {
-        layer.value: metadata.to_dict() if metadata else None
-        for layer, metadata in status.items()
-    }
-
-
-@router.post("/trigger-sync")
-async def trigger_manual_sync(layers: Optional[List[SyncLayerType]] = None):
-    """Manually trigger a sync operation."""
-    if not sync_service:
-        raise HTTPException(status_code=503, detail="Sync service not initialized")
-
-    try:
-        # Trigger specified layers or all
-        if not layers:
-            layers = [SyncLayerType.API]
-
-        results = {}
-        for layer in layers:
-            if layer == SyncLayerType.API:
-                state = await sync_service.sync_infrastructure_state()
-                results[layer.value] = state.to_dict()
-
-        return {"triggered": True, "results": results}
-    except Exception as e:
-        logger.error(f"Failed to trigger sync: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Singleton instance
+lz_sync_service = LZSyncService()

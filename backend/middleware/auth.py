@@ -7,28 +7,29 @@ Implements:
 - Role-based access control (RBAC)
 - Audit logging for all auth events
 """
-import os
 import logging
+import os
 import time
-from typing import Optional, List, Dict, Any, Callable
 from functools import wraps
+from typing import Any, Callable, Dict, List, Optional
 
-from fastapi import Request, HTTPException, Depends, Security
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from starlette.middleware.base import BaseHTTPMiddleware
-from pydantic import BaseModel, EmailStr, Field
+import google.auth.exceptions
+from fastapi import HTTPException, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from google.auth import jwt as google_jwt
 
 # Google Auth libraries
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
-from google.auth import jwt as google_jwt
-import google.auth.exceptions
+from pydantic import BaseModel, EmailStr, Field
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Configuration
 # ============================================================================
+
 
 class AuthConfig:
     """Authentication configuration from environment."""
@@ -38,7 +39,9 @@ class AuthConfig:
     IS_PRODUCTION = ENVIRONMENT in ("production", "prod")
 
     # Google IAP settings
-    IAP_AUDIENCE = os.getenv("IAP_AUDIENCE", "")  # /projects/{project_number}/global/backendServices/{service_id}
+    IAP_AUDIENCE = os.getenv(
+        "IAP_AUDIENCE", ""
+    )  # /projects/{project_number}/global/backendServices/{service_id}
     IAP_ISSUER = "https://cloud.google.com/iap"
 
     # OAuth settings
@@ -54,15 +57,19 @@ class AuthConfig:
 
     # Feature flags
     REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
-    ALLOW_DEV_BYPASS = os.getenv("ALLOW_DEV_BYPASS", "false").lower() == "true" and not IS_PRODUCTION
+    ALLOW_DEV_BYPASS = (
+        os.getenv("ALLOW_DEV_BYPASS", "false").lower() == "true" and not IS_PRODUCTION
+    )
 
 
 # ============================================================================
 # Models
 # ============================================================================
 
+
 class User(BaseModel):
     """Authenticated user model."""
+
     id: str = Field(..., description="Unique user identifier")
     email: EmailStr = Field(..., description="User email address")
     name: str = Field(default="", description="Display name")
@@ -86,8 +93,10 @@ class User(BaseModel):
 # Role-Based Access Control
 # ============================================================================
 
+
 class Permission:
     """Permission constants."""
+
     # Projects
     PROJECTS_READ = "projects:read"
     PROJECTS_WRITE = "projects:write"
@@ -174,6 +183,7 @@ def get_permissions_for_roles(roles: List[str]) -> List[str]:
 # Token Validators
 # ============================================================================
 
+
 class TokenValidator:
     """Base token validator."""
 
@@ -206,7 +216,7 @@ class IAPTokenValidator(TokenValidator):
                 iap_jwt,
                 self._request_adapter,
                 audience=AuthConfig.IAP_AUDIENCE,
-                certs_url="https://www.gstatic.com/iap/verify/public_key"
+                certs_url="https://www.gstatic.com/iap/verify/public_key",
             )
 
             email = decoded.get("email", "")
@@ -222,7 +232,7 @@ class IAPTokenValidator(TokenValidator):
                 permissions=get_permissions_for_roles(roles),
                 organization=decoded.get("hd"),  # Hosted domain
                 auth_method="iap",
-                token_exp=decoded.get("exp")
+                token_exp=decoded.get("exp"),
             )
 
         except google.auth.exceptions.GoogleAuthError as e:
@@ -262,9 +272,7 @@ class OAuth2TokenValidator(TokenValidator):
 
             # Verify the token with Google
             idinfo = id_token.verify_oauth2_token(
-                token,
-                self._request_adapter,
-                AuthConfig.OAUTH_CLIENT_ID
+                token, self._request_adapter, AuthConfig.OAUTH_CLIENT_ID
             )
 
             # Verify issuer
@@ -294,7 +302,7 @@ class OAuth2TokenValidator(TokenValidator):
                 permissions=get_permissions_for_roles(roles),
                 organization=idinfo.get("hd"),
                 auth_method="oauth2",
-                token_exp=idinfo.get("exp")
+                token_exp=idinfo.get("exp"),
             )
 
         except ValueError as e:
@@ -324,9 +332,7 @@ class ServiceAccountValidator(TokenValidator):
                 return None
 
             idinfo = id_token.verify_token(
-                token,
-                self._request_adapter,
-                audience=AuthConfig.OAUTH_CLIENT_ID
+                token, self._request_adapter, audience=AuthConfig.OAUTH_CLIENT_ID
             )
 
             return User(
@@ -336,7 +342,7 @@ class ServiceAccountValidator(TokenValidator):
                 roles=["service"],
                 permissions=get_permissions_for_roles(["service"]),
                 auth_method="service_account",
-                token_exp=idinfo.get("exp")
+                token_exp=idinfo.get("exp"),
             )
 
         except Exception as e:
@@ -347,6 +353,7 @@ class ServiceAccountValidator(TokenValidator):
 # ============================================================================
 # Authentication Service
 # ============================================================================
+
 
 class AuthenticationService:
     """Central authentication service."""
@@ -391,9 +398,9 @@ security = HTTPBearer(auto_error=False)
 # Dependency Injection for FastAPI
 # ============================================================================
 
+
 async def get_current_user(
-    request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
+    request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
 ) -> User:
     """
     FastAPI dependency to get the current authenticated user.
@@ -436,7 +443,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=401,
             detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     # Log successful authentication
@@ -446,8 +453,7 @@ async def get_current_user(
 
 
 async def get_optional_user(
-    request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
+    request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Security(security)
 ) -> Optional[User]:
     """Get current user if authenticated, None otherwise."""
     try:
@@ -460,6 +466,7 @@ async def get_optional_user(
 # Permission Decorators
 # ============================================================================
 
+
 def require_permissions(*required_permissions: str):
     """
     Decorator to require specific permissions for an endpoint.
@@ -470,6 +477,7 @@ def require_permissions(*required_permissions: str):
         async def list_users(user: User = Depends(get_current_user)):
             return {"users": [...]}
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -482,16 +490,15 @@ def require_permissions(*required_permissions: str):
             # Check permissions
             missing = [p for p in required_permissions if p not in user.permissions]
             if missing:
-                logger.warning(
-                    f"Permission denied for {user.email}: missing {missing}"
-                )
+                logger.warning(f"Permission denied for {user.email}: missing {missing}")
                 raise HTTPException(
-                    status_code=403,
-                    detail=f"Missing required permissions: {', '.join(missing)}"
+                    status_code=403, detail=f"Missing required permissions: {', '.join(missing)}"
                 )
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -505,6 +512,7 @@ def require_roles(*required_roles: str):
         async def delete_project(id: str, user: User = Depends(get_current_user)):
             ...
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -514,22 +522,22 @@ def require_roles(*required_roles: str):
                 raise HTTPException(status_code=401, detail="Authentication required")
 
             if not any(role in user.roles for role in required_roles):
-                logger.warning(
-                    f"Role denied for {user.email}: requires one of {required_roles}"
-                )
+                logger.warning(f"Role denied for {user.email}: requires one of {required_roles}")
                 raise HTTPException(
-                    status_code=403,
-                    detail=f"Requires one of roles: {', '.join(required_roles)}"
+                    status_code=403, detail=f"Requires one of roles: {', '.join(required_roles)}"
                 )
 
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # ============================================================================
 # Auth Middleware
 # ============================================================================
+
 
 class AuthMiddleware(BaseHTTPMiddleware):
     """
@@ -568,6 +576,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 # Audit Logging
 # ============================================================================
 
+
 class AuditLogger:
     """Audit logger for security events."""
 
@@ -576,35 +585,41 @@ class AuditLogger:
 
     def log_auth_success(self, user: User, request: Request):
         """Log successful authentication."""
-        self.logger.info({
-            "event": "auth_success",
-            "user_id": user.id,
-            "email": user.email,
-            "auth_method": user.auth_method,
-            "ip": request.client.host if request.client else "unknown",
-            "path": request.url.path,
-            "user_agent": request.headers.get("user-agent", ""),
-        })
+        self.logger.info(
+            {
+                "event": "auth_success",
+                "user_id": user.id,
+                "email": user.email,
+                "auth_method": user.auth_method,
+                "ip": request.client.host if request.client else "unknown",
+                "path": request.url.path,
+                "user_agent": request.headers.get("user-agent", ""),
+            }
+        )
 
     def log_auth_failure(self, request: Request, reason: str):
         """Log failed authentication attempt."""
-        self.logger.warning({
-            "event": "auth_failure",
-            "reason": reason,
-            "ip": request.client.host if request.client else "unknown",
-            "path": request.url.path,
-            "user_agent": request.headers.get("user-agent", ""),
-        })
+        self.logger.warning(
+            {
+                "event": "auth_failure",
+                "reason": reason,
+                "ip": request.client.host if request.client else "unknown",
+                "path": request.url.path,
+                "user_agent": request.headers.get("user-agent", ""),
+            }
+        )
 
     def log_permission_denied(self, user: User, permission: str, request: Request):
         """Log permission denied event."""
-        self.logger.warning({
-            "event": "permission_denied",
-            "user_id": user.id,
-            "email": user.email,
-            "permission": permission,
-            "path": request.url.path,
-        })
+        self.logger.warning(
+            {
+                "event": "permission_denied",
+                "user_id": user.id,
+                "email": user.email,
+                "permission": permission,
+                "path": request.url.path,
+            }
+        )
 
 
 audit_logger = AuditLogger()

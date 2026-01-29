@@ -1,9 +1,9 @@
 # Landing Zone Onboarding - Final Actions Required
 ## Status: 88% Compliant → 100% (2 days to completion)
 
-**Generated**: January 26, 2026  
-**Priority**: HIGH - Complete by January 27, 2026  
-**Owner**: Portal Team  
+**Generated**: January 26, 2026
+**Priority**: HIGH - Complete by January 27, 2026
+**Owner**: Portal Team
 
 ---
 
@@ -56,7 +56,7 @@ git rebase -i --root
 # 180c700 docs(project): add canonical documentation
 # 62d97c9 chore(governance): add project configuration and tooling
 
-# When prompted for each commit, just press Ctrl+X to exit editor 
+# When prompted for each commit, just press Ctrl+X to exit editor
 # and git will automatically sign with -S flag
 
 # Or use this one-liner approach:
@@ -265,9 +265,9 @@ git filter-branch --env-filter '
 
 ✅ **88% Done** → Complete 2 simple actions → **100% Compliant** → **Ready for Production**
 
-**Estimated effort**: 30 minutes  
-**Deadline**: January 27, 2026  
-**Impact**: Full Landing Zone Integration + Production Ready  
+**Estimated effort**: 30 minutes
+**Deadline**: January 27, 2026
+**Impact**: Full Landing Zone Integration + Production Ready
 
 **Next steps** (in order):
 1. Sign 8 unsigned commits (15-30 min)

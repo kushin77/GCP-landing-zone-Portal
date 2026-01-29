@@ -2,12 +2,19 @@
 GCP service clients for interacting with Google Cloud APIs.
 """
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
-from google.cloud import resourcemanager_v3, bigquery, asset_v1, monitoring_v3
-from google.cloud import secretmanager, storage
-from google.api_core import exceptions
 import os
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from google.api_core import exceptions
+from google.cloud import (
+    asset_v1,
+    bigquery,
+    monitoring_v3,
+    resourcemanager_v3,
+    secretmanager,
+    storage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,36 +81,34 @@ class ProjectService:
         self.client = client_manager.projects
         self.project_id = client_manager.project_id
 
-    async def list_projects(self, parent: Optional[str] = None,
-                           page_size: int = 100) -> List[Dict[str, Any]]:
+    async def list_projects(
+        self, parent: Optional[str] = None, page_size: int = 100
+    ) -> List[Dict[str, Any]]:
         """List all accessible projects."""
         try:
             if parent:
-                request = resourcemanager_v3.ListProjectsRequest(
-                    parent=parent,
-                    page_size=page_size
-                )
+                request = resourcemanager_v3.ListProjectsRequest(parent=parent, page_size=page_size)
             else:
                 # List all projects accessible to the service account
-                request = resourcemanager_v3.ListProjectsRequest(
-                    page_size=page_size
-                )
+                request = resourcemanager_v3.ListProjectsRequest(page_size=page_size)
 
             projects = []
             for project in self.client.list_projects(request=request):
-                projects.append({
-                    "id": project.name,
-                    "project_id": project.project_id,
-                    "name": project.display_name,
-                    "number": project.name.split('/')[-1],
-                    "state": project.state.name,
-                    "parent": {
-                        "type": project.parent.split('/')[0] if project.parent else None,
-                        "id": project.parent.split('/')[-1] if project.parent else None
-                    },
-                    "created_at": project.create_time,
-                    "labels": dict(project.labels) if project.labels else {}
-                })
+                projects.append(
+                    {
+                        "id": project.name,
+                        "project_id": project.project_id,
+                        "name": project.display_name,
+                        "number": project.name.split("/")[-1],
+                        "state": project.state.name,
+                        "parent": {
+                            "type": project.parent.split("/")[0] if project.parent else None,
+                            "id": project.parent.split("/")[-1] if project.parent else None,
+                        },
+                        "created_at": project.create_time,
+                        "labels": dict(project.labels) if project.labels else {},
+                    }
+                )
 
             return projects
         except exceptions.GoogleAPIError as e:
@@ -113,18 +118,16 @@ class ProjectService:
     async def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
         """Get project details."""
         try:
-            project = self.client.get_project(
-                name=f"projects/{project_id}"
-            )
+            project = self.client.get_project(name=f"projects/{project_id}")
 
             return {
                 "id": project.name,
                 "project_id": project.project_id,
                 "name": project.display_name,
-                "number": project.name.split('/')[-1],
+                "number": project.name.split("/")[-1],
                 "state": project.state.name,
                 "created_at": project.create_time,
-                "labels": dict(project.labels) if project.labels else {}
+                "labels": dict(project.labels) if project.labels else {},
             }
         except exceptions.NotFound:
             logger.warning(f"Project not found: {project_id}")
@@ -181,9 +184,7 @@ class CostService:
 
         try:
             job_config = bigquery.QueryJobConfig(
-                query_parameters=[
-                    bigquery.ScalarQueryParameter("days", "INT64", days)
-                ]
+                query_parameters=[bigquery.ScalarQueryParameter("days", "INT64", days)]
             )
             result = self.client.query(query, job_config=job_config).result()
             return [
@@ -192,7 +193,7 @@ class CostService:
                     "cost": float(row.total_cost),
                     "currency": "USD",
                     "usage": float(row.total_usage) if row.total_usage else None,
-                    "unit": row.unit
+                    "unit": row.unit,
                 }
                 for row in result
             ]
@@ -218,7 +219,7 @@ class CostService:
             job_config = bigquery.QueryJobConfig(
                 query_parameters=[
                     bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-                    bigquery.ScalarQueryParameter("days", "INT64", days)
+                    bigquery.ScalarQueryParameter("days", "INT64", days),
                 ]
             )
             result = self.client.query(query, job_config=job_config).result()
@@ -264,34 +265,35 @@ class AssetService:
         self.client = client_manager.assets
         self.project_id = client_manager.project_id
 
-    async def search_resources(self, asset_types: List[str] = None,
-                              query: str = None,
-                              page_size: int = 100) -> List[Dict[str, Any]]:
+    async def search_resources(
+        self, asset_types: List[str] = None, query: str = None, page_size: int = 100
+    ) -> List[Dict[str, Any]]:
         """Search for resources across the organization."""
         try:
             scope = f"projects/{self.project_id}"
 
             request = asset_v1.SearchAllResourcesRequest(
-                scope=scope,
-                asset_types=asset_types,
-                query=query,
-                page_size=page_size
+                scope=scope, asset_types=asset_types, query=query, page_size=page_size
             )
 
             resources = []
             for resource in self.client.search_all_resources(request=request):
-                resources.append({
-                    "name": resource.name,
-                    "asset_type": resource.asset_type,
-                    "project": resource.project,
-                    "display_name": resource.display_name,
-                    "description": resource.description,
-                    "location": resource.location,
-                    "labels": dict(resource.labels) if resource.labels else {},
-                    "network_tags": list(resource.network_tags) if resource.network_tags else [],
-                    "create_time": resource.create_time,
-                    "update_time": resource.update_time
-                })
+                resources.append(
+                    {
+                        "name": resource.name,
+                        "asset_type": resource.asset_type,
+                        "project": resource.project,
+                        "display_name": resource.display_name,
+                        "description": resource.description,
+                        "location": resource.location,
+                        "labels": dict(resource.labels) if resource.labels else {},
+                        "network_tags": list(resource.network_tags)
+                        if resource.network_tags
+                        else [],
+                        "create_time": resource.create_time,
+                        "update_time": resource.update_time,
+                    }
+                )
 
             return resources
         except exceptions.GoogleAPIError as e:
@@ -306,42 +308,45 @@ class MonitoringService:
         self.client = client_manager.monitoring
         self.project_id = client_manager.project_id
 
-    async def get_metric(self, metric_type: str,
-                        resource_type: str = None,
-                        hours: int = 24) -> List[Dict[str, Any]]:
+    async def get_metric(
+        self, metric_type: str, resource_type: str = None, hours: int = 24
+    ) -> List[Dict[str, Any]]:
         """Get time series data for a metric."""
         try:
             project_name = f"projects/{self.project_id}"
 
             now = datetime.utcnow()
-            interval = monitoring_v3.TimeInterval({
-                "end_time": now,
-                "start_time": now - timedelta(hours=hours)
-            })
+            interval = monitoring_v3.TimeInterval(
+                {"end_time": now, "start_time": now - timedelta(hours=hours)}
+            )
 
-            request = monitoring_v3.ListTimeSeriesRequest({
-                "name": project_name,
-                "filter": f'metric.type = "{metric_type}"',
-                "interval": interval,
-                "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL
-            })
+            request = monitoring_v3.ListTimeSeriesRequest(
+                {
+                    "name": project_name,
+                    "filter": f'metric.type = "{metric_type}"',
+                    "interval": interval,
+                    "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+                }
+            )
 
             results = []
             for series in self.client.list_time_series(request=request):
                 data_points = [
                     {
                         "timestamp": point.interval.end_time,
-                        "value": point.value.double_value or point.value.int64_value
+                        "value": point.value.double_value or point.value.int64_value,
                     }
                     for point in series.points
                 ]
 
-                results.append({
-                    "metric": series.metric.type,
-                    "resource": series.resource.type,
-                    "labels": dict(series.metric.labels),
-                    "data_points": data_points
-                })
+                results.append(
+                    {
+                        "metric": series.metric.type,
+                        "resource": series.resource.type,
+                        "labels": dict(series.metric.labels),
+                        "data_points": data_points,
+                    }
+                )
 
             return results
         except exceptions.GoogleAPIError as e:
