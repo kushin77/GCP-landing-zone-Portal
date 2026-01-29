@@ -34,7 +34,9 @@ if [ -z "$PROJECT_ID" ]; then
   exit 1
 fi
 
-set -x
+# NOTE: do NOT enable shell debugging (`set -x`) in this script - it can leak
+# secrets into CI logs. Keep the script quiet and avoid echoing sensitive
+# values.
 
 # Create secret if it doesn't exist
 if ! gcloud secrets describe "$SECRET_NAME" --project="$PROJECT_ID" >/dev/null 2>&1; then

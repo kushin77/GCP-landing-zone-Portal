@@ -27,15 +27,15 @@ logger = logging.getLogger(__name__)
 
 class RateLimitConfig:
     """Rate limit configuration."""
-    
+
     # Per-user limits
     USER_LIMIT_REQUESTS = 1000  # requests
     USER_LIMIT_WINDOW = 3600    # seconds (1 hour)
-    
+
     # Per-IP limits
     IP_LIMIT_REQUESTS = 10000   # requests
     IP_LIMIT_WINDOW = 3600      # seconds (1 hour)
-    
+
     # Endpoint-specific limits
     ENDPOINT_LIMITS = {
         "/api/v1/health": {"requests": 1000, "window": 60},  # 1000 req/min
@@ -56,17 +56,17 @@ class DistributedRateLimiter:
     ) -> bool:
         """
         Check if request is within rate limit.
-        
+
         Uses sliding window algorithm:
         - Maintains sorted set of request timestamps
         - Removes old entries outside window
         - Counts requests in current window
-        
+
         Args:
             key: Rate limit key (e.g., "user:123", "ip:192.168.1.1")
             limit: Maximum requests allowed
             window: Time window in seconds
-            
+
         Returns:
             True if within limit, False if exceeded
         """
@@ -84,7 +84,7 @@ class DistributedRateLimiter:
 
         # Add this request
         await self.redis.zadd(key, {str(now): now})
-        
+
         # Set expiration (window + 1 second)
         await self.redis.expire(key, window + 1)
 
@@ -95,7 +95,7 @@ class DistributedRateLimiter:
     ) -> tuple[int, int]:
         """
         Get remaining requests and reset time.
-        
+
         Returns:
             (remaining_requests, seconds_until_reset)
         """
@@ -134,21 +134,21 @@ class DistributedRateLimiter:
 
 class PaginationParams(BaseModel):
     """Paginated query parameters with validation."""
-    
+
     page: int = Field(
         default=1,
         ge=1,
         le=10000,
         description="Page number"
     )
-    
+
     limit: int = Field(
         default=50,
         ge=1,
         le=100,  # Max 100 items per page
         description="Items per page (1-100)"
     )
-    
+
     offset: int = Field(
         default=0,
         ge=0,
@@ -164,33 +164,33 @@ class PaginationParams(BaseModel):
 
 class ProjectQueryParams(BaseModel):
     """Project query parameters with validation."""
-    
+
     days: int = Field(
         default=30,
         ge=1,
         le=365,
         description="Number of days to query (1-365)"
     )
-    
+
     project_id: Optional[str] = Field(
         default=None,
         regex=r"^[a-z0-9\-]{1,30}$",  # GCP project ID format
         description="Project ID to filter by"
     )
-    
+
     status: Optional[str] = Field(
         default=None,
         regex=r"^[a-z\-]+$",
         description="Project status"
     )
-    
+
     page: int = Field(
         default=1,
         ge=1,
         le=10000,
         description="Page number"
     )
-    
+
     limit: int = Field(
         default=50,
         ge=1,
@@ -201,41 +201,41 @@ class ProjectQueryParams(BaseModel):
 
 class CostQueryParams(BaseModel):
     """Cost query parameters with validation."""
-    
+
     days: int = Field(
         default=30,
         ge=1,
         le=365,
         description="Days to query"
     )
-    
+
     project_id: Optional[str] = Field(
         default=None,
         regex=r"^[a-z0-9\-]{1,30}$",
         description="Project ID"
     )
-    
+
     min_cost: float = Field(
         default=0,
         ge=0,
         le=1000000,
         description="Minimum cost filter"
     )
-    
+
     max_cost: float = Field(
         default=1000000,
         ge=0,
         le=1000000,
         description="Maximum cost filter"
     )
-    
+
     page: int = Field(
         default=1,
         ge=1,
         le=10000,
         description="Page number"
     )
-    
+
     limit: int = Field(
         default=50,
         ge=1,
@@ -246,19 +246,19 @@ class CostQueryParams(BaseModel):
 
 class ComplianceScanParams(BaseModel):
     """Compliance scan parameters with validation."""
-    
+
     frameworks: list[str] = Field(
         default=[],
         max_items=10,
         description="Compliance frameworks to scan"
     )
-    
+
     severity: Optional[str] = Field(
         default=None,
         regex=r"^(critical|high|medium|low)$",
         description="Minimum severity level"
     )
-    
+
     project_ids: list[str] = Field(
         default=[],
         max_items=100,
@@ -272,11 +272,11 @@ class ComplianceScanParams(BaseModel):
 
 class RequestValidator:
     """Validates HTTP requests."""
-    
+
     # Global limits
     MAX_CONTENT_LENGTH = 1024 * 1024  # 1MB max request size
     MAX_QUERY_STRING_LENGTH = 10 * 1024  # 10KB max query string
-    
+
     # Header limits
     MAX_HEADER_SIZE = 8 * 1024  # 8KB per header
     MAX_HEADERS = 100
@@ -285,7 +285,7 @@ class RequestValidator:
     def validate_content_length(request: Request) -> bool:
         """Validate Content-Length header."""
         content_length = request.headers.get("content-length", "0")
-        
+
         try:
             length = int(content_length)
             if length > RequestValidator.MAX_CONTENT_LENGTH:

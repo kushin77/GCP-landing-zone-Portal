@@ -174,6 +174,7 @@ Q3 2026: Analytics, AI Assistant, Anomaly Detection
 1. Check [ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)
 2. Review [API.md](docs/api/API.md)
 3. Look at current frontend code in `frontend/src/`
+4. Secure GitHub PAT storage & GH CLI: see `docs/GSM_GH_PUSH.md` for recommended GSM + `gh` workflow
 
 ---
 

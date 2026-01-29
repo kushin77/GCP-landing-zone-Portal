@@ -35,7 +35,7 @@ steps:
     args:
       - '-c'
       - |
-        trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed backend/ || true
+        trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed backend/
     waitFor: ['-']
 
   - name: 'node:20-slim'
@@ -47,8 +47,8 @@ steps:
         if [ -n "$_SNYK_TOKEN" ]; then
           npm install -g snyk
           snyk auth "$_SNYK_TOKEN"
-          snyk test --severity-threshold=high frontend/ || true
-          snyk test --severity-threshold=high backend/ || true
+          snyk test --severity-threshold=high frontend/
+          snyk test --severity-threshold=high backend/
         else
           echo "Snyk token not configured, skipping"
         fi
@@ -188,6 +188,27 @@ steps:
       - 'backend/'
     waitFor: ['test-backend']
 
+  # Generate SBOM from source for backend and scan with Grype (fail on high)
+  - name: 'anchore/syft:latest'
+    id: 'sbom-backend'
+    entrypoint: 'sh'
+    dir: 'backend'
+    args:
+      - '-c'
+      - |
+        syft dir:. -o spdx-json=backend-sbom.json
+    waitFor: ['test-backend']
+
+  - name: 'anchore/grype:latest'
+    id: 'grype-backend-sbom'
+    entrypoint: 'sh'
+    dir: 'backend'
+    args:
+      - '-c'
+      - |
+        grype sbom:backend-sbom.json --fail-on high
+    waitFor: ['sbom-backend']
+
   - name: 'gcr.io/cloud-builders/docker'
     id: 'build-frontend'
     args:
@@ -203,6 +224,27 @@ steps:
       - '-f=frontend/Dockerfile'
       - 'frontend/'
     waitFor: ['test-frontend']
+
+  # Generate SBOM from source for frontend and scan with Grype (fail on high)
+  - name: 'anchore/syft:latest'
+    id: 'sbom-frontend'
+    entrypoint: 'sh'
+    dir: 'frontend'
+    args:
+      - '-c'
+      - |
+        syft dir:. -o spdx-json=frontend-sbom.json
+    waitFor: ['test-frontend']
+
+  - name: 'anchore/grype:latest'
+    id: 'grype-frontend-sbom'
+    entrypoint: 'sh'
+    dir: 'frontend'
+    args:
+      - '-c'
+      - |
+        grype sbom:frontend-sbom.json --fail-on high
+    waitFor: ['sbom-frontend']
 
   # ==========================================================================
   # Stage 6: Container Security Scanning

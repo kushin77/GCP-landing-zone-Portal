@@ -141,7 +141,7 @@ class Database:
     ) -> Dict[str, Dict[str, Any]]:
         """
         Get multiple documents efficiently (prevents N+1).
-        
+
         Uses Firestore transactions for atomic batch reads.
         """
         if not document_ids:
@@ -177,7 +177,7 @@ class Database:
     ) -> List[Dict[str, Any]]:
         """
         Query documents with filters.
-        
+
         Args:
             collection: Collection name
             filters: List of (field, operator, value) tuples
@@ -272,7 +272,7 @@ class Database:
     ) -> None:
         """
         Batch multiple write operations atomically.
-        
+
         Args:
             operations: List of (operation, collection, doc_id, data) tuples
                        operation: 'set', 'update', or 'delete'
@@ -341,7 +341,7 @@ class QueryOptimizer:
     ) -> Dict[str, Any]:
         """
         Build efficient query using indexes.
-        
+
         Note: Composite indexes should be created in Firestore console.
         """
         return {
