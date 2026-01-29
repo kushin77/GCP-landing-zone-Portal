@@ -1,3 +1,4 @@
+```yaml
 # =============================================================================
 # Cloud Build Configuration - FAANG-Grade CI/CD Pipeline
 # =============================================================================
@@ -24,6 +25,8 @@ availableSecrets:
   secretManager:
     - versionName: projects/${PROJECT_ID}/secrets/PORTAL_WORKLOADS_TFVARS/versions/latest
       env: TFVARS_WORKLOADS
+    - versionName: projects/${PROJECT_ID}/secrets/PORTAL_AUTH_TOKEN/versions/latest
+      env: PORTAL_AUTH_TOKEN
 
 steps:
   # ==========================================================================
@@ -44,9 +47,9 @@ steps:
     args:
       - '-c'
       - |
-        if [ -n "$_SNYK_TOKEN" ]; then
+        if [ -n "$ _SNYK_TOKEN" ]; then
           npm install -g snyk
-          snyk auth "$_SNYK_TOKEN"
+          snyk auth "$ _SNYK_TOKEN"
           snyk test --severity-threshold=high frontend/
           snyk test --severity-threshold=high backend/
         else
@@ -309,7 +312,7 @@ steps:
       - '--platform=managed'
       - '--no-allow-unauthenticated'
       - '--service-account=portal-backend@${PROJECT_ID}.iam.gserviceaccount.com'
-      - '--set-env-vars=ENVIRONMENT=staging,GCP_PROJECT_ID=${PROJECT_ID}'
+      - '--set-env-vars=ENVIRONMENT=staging,GCP_PROJECT_ID=${PROJECT_ID},PORTAL_AUTH_TOKEN=${PORTAL_AUTH_TOKEN}'
       - '--min-instances=1'
       - '--max-instances=10'
       - '--memory=512Mi'
@@ -378,3 +381,5 @@ tags:
   - 'gcp-cloud'
   - 'portal'
   - 'ci-cd'
+
+```
