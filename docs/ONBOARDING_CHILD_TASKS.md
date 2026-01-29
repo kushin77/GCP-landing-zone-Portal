@@ -11,7 +11,7 @@ Tasks created by Copilot for the onboarding epics (two per epic).
   - [ ] Document local setup and test commands — https://github.com/kushin77/GCP-landing-zone-Portal/issues/96
 
 - Secrets & IAM (#90)
-  - [ ] Rotate compromised token (owner action) — https://github.com/kushin77/GCP-landing-zone-Portal/issues/97
+  - [ ] Rotate compromised token (owner action: @kushin77) — https://github.com/kushin77/GCP-landing-zone-Portal/issues/97
   - [ ] Migrate CI/runtime secrets to Google Secret Manager (GSM) — https://github.com/kushin77/GCP-landing-zone-Portal/issues/98
 
 - CI/CD & Tests (#88)
