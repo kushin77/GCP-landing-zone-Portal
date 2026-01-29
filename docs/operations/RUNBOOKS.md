@@ -4,8 +4,8 @@
 
 This runbook covers incident detection, response, and resolution for the Landing Zone Portal.
 
-**On-Call Rotation**: See PagerDuty → #portal-oncall  
-**Escalation**: @platform-engineering on Slack  
+**On-Call Rotation**: See PagerDuty → #portal-oncall
+**Escalation**: @platform-engineering on Slack
 **War Room**: https://meet.google.com/portal-incident-war-room
 
 ## Severity Levels
@@ -143,22 +143,22 @@ gcloud compute ssh portal-test-vm \
 1. **Create issue template**
    ```
    Title: P1 Incident: Portal Outage [Date]
-   
+
    **Impact**: Full service unavailable, ~0 users affected
    **Duration**: 15 minutes (detected at 14:30 UTC, resolved at 14:45 UTC)
    **Root Cause**: [Brief explanation]
-   
+
    **Timeline**:
    - 14:30: Alert triggered
    - 14:32: Team responded
    - 14:35: Root cause identified
    - 14:45: Resolution deployed
-   
+
    **Root Cause Analysis**:
    - Why did this happen?
    - Why weren't we protected?
    - Could we detect this earlier?
-   
+
    **Action Items**:
    - [ ] Add monitoring for [metric]
    - [ ] Add test for [scenario]
@@ -343,7 +343,7 @@ Keep updated:
 
 ---
 
-**Last Updated**: 2026-01-18  
-**Review Schedule**: Quarterly (next: 2026-04-18)  
+**Last Updated**: 2026-01-18
+**Review Schedule**: Quarterly (next: 2026-04-18)
 **On-Call**: See PagerDuty
 

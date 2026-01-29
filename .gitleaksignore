@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "description": "Gitleaks config for GCP Landing Zone Portal",
+  "paths": {
+    "provider": "config",
+    "config": ".gitleaks.toml"
+  },
+  "allowlist": [
+    {
+      "description": "False positive: API.md example credentials (documentation only, not real secrets)",
+      "regexes": [
+        ".*API.md.*"
+      ],
+      "commits": [
+        "574b7821d4b061f4de173703214444f991c563ba"
+      ],
+      "paths": [
+        "API.md"
+      ]
+    }
+  ]
+}

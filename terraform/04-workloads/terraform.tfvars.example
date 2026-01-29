@@ -1,0 +1,7 @@
+project_id               = "YOUR_PROJECT_ID"
+region                   = "us-central1"
+domain                   = "elevatediq.ai"
+frontend_bucket          = "YOUR_PROJECT_ID-frontend"
+cloud_run_service_name   = "portal-backend"
+iap_client_id            = "YOUR_IAP_CLIENT_ID"
+iap_client_secret        = "YOUR_IAP_CLIENT_SECRET"

@@ -18,7 +18,7 @@ REQUIRED_FILES=(
   "frontend/package.json"
   "backend/requirements.txt"
   "backend/pytest.ini"
-  "terraform/foundation/main.tf"
+  "terraform/01-foundation/main.tf"
   "docs/api/API.md"
   "docs/architecture/ARCHITECTURE.md"
   "docs/operations/DEPLOYMENT.md"
@@ -47,20 +47,22 @@ echo "✅ All required files present!"
 
 # Check folder structure
 echo ""
-echo "📁 Checking folder structure..."
+echo "📁 Checking folder structure (5-layer Terraform)..."
 REQUIRED_DIRS=(
   "frontend/src"
-  "backend/src"
-  "terraform/foundation"
-  "terraform/networking"
-  "terraform/security"
+  "backend/services"
+  "terraform/01-foundation"
+  "terraform/02-network"
+  "terraform/03-security"
+  "terraform/04-workloads"
+  "terraform/05-observability"
+  "terraform/modules"
   "scripts/deployment"
   "scripts/security"
   "scripts/validation"
   "docs/api"
   "docs/architecture"
   "docs/operations"
-  "docs/compliance"
 )
 
 for dir in "${REQUIRED_DIRS[@]}"; do
