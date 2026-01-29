@@ -14,4 +14,3 @@ terraform -chdir=05-observability apply
 ## Status
 
 🚧 Implementation in progress...
-

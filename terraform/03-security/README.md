@@ -14,4 +14,3 @@ terraform -chdir=03-security apply
 ## Status
 
 🚧 Implementation in progress...
-

@@ -10,17 +10,13 @@ Provides:
 - SLO definitions
 """
 import logging
-from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from prometheus_client import Counter, Histogram, Gauge, Summary
-from opentelemetry import trace, metrics
+from opentelemetry import trace
+from opentelemetry.exporter.gcp_trace import CloudTraceExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.exporter.gcp_trace import CloudTraceExporter
-from opentelemetry.exporter.gcp_monitoring import GoogleCloudMonitoringMetricReader
+from prometheus_client import Counter, Gauge, Histogram
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +24,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Prometheus Metrics
 # ============================================================================
+
 
 class Metrics:
     """Application metrics for monitoring."""
@@ -206,6 +203,7 @@ class Metrics:
 # OpenTelemetry Tracing Setup
 # ============================================================================
 
+
 def setup_tracing(project_id: str, service_name: str, service_version: str):
     """Initialize OpenTelemetry tracing."""
     try:
@@ -240,6 +238,7 @@ def setup_tracing(project_id: str, service_name: str, service_version: str):
 # SLI (Service Level Indicator) Tracking
 # ============================================================================
 
+
 class SLITracker:
     """Track Service Level Indicators."""
 
@@ -253,9 +252,7 @@ class SLITracker:
     ):
         """Record request for SLI tracking."""
         # Update latency histogram
-        Metrics.http_request_duration_seconds.labels(endpoint=endpoint).observe(
-            duration_ms / 1000
-        )
+        Metrics.http_request_duration_seconds.labels(endpoint=endpoint).observe(duration_ms / 1000)
 
         # Update request counter
         Metrics.http_requests_total.labels(
@@ -415,6 +412,7 @@ groups:
 # ============================================================================
 # Initialization
 # ============================================================================
+
 
 def init_observability(project_id: str, service_name: str, service_version: str):
     """Initialize all observability components."""

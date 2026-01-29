@@ -7,10 +7,10 @@ Tests cover:
 - Costs API
 - Compliance API
 """
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 from datetime import datetime
+from unittest.mock import MagicMock, patch
+
+from fastapi.testclient import TestClient
 
 
 class TestHealthEndpoints:
@@ -63,7 +63,7 @@ class TestProjectsAPI:
                         "labels": {},
                         "parent": None,
                         "status": "active",
-                        "type": "project"
+                        "type": "project",
                     }
                 ]
             )
@@ -129,7 +129,7 @@ class TestComplianceAPI:
                     controls_total=mock_compliance_data["controls_total"],
                     controls_compliant=mock_compliance_data["controls_compliant"],
                     controls_non_compliant=mock_compliance_data["controls_non_compliant"],
-                    findings=[]
+                    findings=[],
                 )
             )
 
@@ -152,7 +152,7 @@ class TestDashboardAPI:
     def test_get_dashboard_returns_aggregated_data(self, client: TestClient):
         """Dashboard should return aggregated data from all services."""
         with patch("services.gcp_client.CostService") as mock_cost:
-            with patch("services.compliance_service.compliance_service") as mock_compliance:
+            with patch("services.compliance_service.compliance_service"):
                 mock_cost.return_value.get_current_month_costs = MagicMock(return_value=12000.0)
                 mock_cost.return_value.get_cost_breakdown = MagicMock(return_value=[])
 

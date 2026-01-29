@@ -9,23 +9,84 @@ Features:
 - Structured logging with trace context
 """
 
-import os
 import logging
-from typing import Optional
+import os
 
-from opentelemetry import trace, metrics
-from opentelemetry.exporter.gcp_trace import CloudTraceExporter
-from opentelemetry.exporter.gcp_monitoring import GoogleCloudMetricsExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.instrumentation.redis import RedisInstrumentor
-from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry import metrics, trace
+
+# Make exporters and instrumentations optional so tests and local dev
+# environments without GCP/OpenTelemetry extras won't fail at import time.
+try:
+    from opentelemetry.exporter.gcp_monitoring import GoogleCloudMetricsExporter
+    from opentelemetry.exporter.gcp_trace import CloudTraceExporter
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
+
+    GCP_EXPORTERS_AVAILABLE = True
+except Exception:
+    CloudTraceExporter = None
+    GoogleCloudMetricsExporter = None
+    TracerProvider = None
+    BatchSpanProcessor = None
+    TraceIdRatioBased = None
+    MeterProvider = None
+    PeriodicExportingMetricReader = None
+    GCP_EXPORTERS_AVAILABLE = False
+
+# Instrumentation fallbacks
+try:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+except Exception:
+
+    class FastAPIInstrumentor:
+        @staticmethod
+        def instrument_app(app):
+            return None
+
+
+try:
+    from opentelemetry.instrumentation.requests import RequestsInstrumentor
+except Exception:
+
+    class RequestsInstrumentor:
+        @staticmethod
+        def instrument():
+            return None
+
+
+try:
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+except Exception:
+
+    class HTTPXClientInstrumentor:
+        @staticmethod
+        def instrument():
+            return None
+
+
+try:
+    from opentelemetry.instrumentation.redis import RedisInstrumentor
+except Exception:
+
+    class RedisInstrumentor:
+        @staticmethod
+        def instrument():
+            return None
+
+
+try:
+    from opentelemetry.instrumentation.logging import LoggingInstrumentor
+except Exception:
+
+    class LoggingInstrumentor:
+        @staticmethod
+        def instrument():
+            return None
+
+
 from fastapi import FastAPI
 
 logger = logging.getLogger(__name__)
@@ -40,21 +101,21 @@ class SLOConfig:
             "target": 0.9999,  # 99.99%
             "window": "30d",
             "metric": "api_errors_total",
-            "description": "API should be available 99.99% of the time"
+            "description": "API should be available 99.99% of the time",
         },
         "cost_dashboard_latency": {
             "name": "Cost Dashboard Latency",
             "target": 0.95,  # 95% of requests < 1s
             "window": "7d",
             "metric": "api_latency_seconds_p95",
-            "description": "95% of cost dashboard requests should complete within 1 second"
+            "description": "95% of cost dashboard requests should complete within 1 second",
         },
         "compliance_freshness": {
             "name": "Compliance Report Freshness",
             "target": 0.98,  # 98% within 1 hour
             "window": "30d",
             "metric": "compliance_report_freshness",
-            "description": "98% of compliance reports should be generated within 1 hour"
+            "description": "98% of compliance reports should be generated within 1 hour",
         },
     }
 
@@ -78,45 +139,76 @@ def setup_tracing(app: FastAPI) -> tuple[trace.TracerProvider, metrics.MeterProv
     # Tracing Setup
     # ========================================================================
 
-    # Cloud Trace exporter
-    trace_exporter = CloudTraceExporter(project_id=project_id)
+    tracer_provider = None
+    # Cloud Trace exporter (optional)
+    if GCP_EXPORTERS_AVAILABLE and CloudTraceExporter is not None:
+        trace_exporter = CloudTraceExporter(project_id=project_id)
 
-    # Sampler: 10% of normal traces, 100% of errors and slow requests
-    sampler = TraceIdRatioBased(0.1)
+        # Sampler: 10% of normal traces, 100% of errors and slow requests
+        sampler = TraceIdRatioBased(0.1)
 
-    # Tracer provider
-    tracer_provider = TracerProvider(sampler=sampler)
-    tracer_provider.add_span_processor(BatchSpanProcessor(trace_exporter))
-    trace.set_tracer_provider(tracer_provider)
+        # Tracer provider
+        tracer_provider = TracerProvider(sampler=sampler)
+        tracer_provider.add_span_processor(BatchSpanProcessor(trace_exporter))
+        trace.set_tracer_provider(tracer_provider)
 
     # ========================================================================
     # Metrics Setup
     # ========================================================================
 
-    # Cloud Monitoring exporter
-    metrics_reader = PeriodicExportingMetricReader(
-        GoogleCloudMetricsExporter(project_id=project_id),
-        interval_millis=10000  # Export every 10 seconds
-    )
+    # Cloud Monitoring exporter (optional)
+    meter_provider = None
+    if (
+        GCP_EXPORTERS_AVAILABLE
+        and GoogleCloudMetricsExporter is not None
+        and PeriodicExportingMetricReader is not None
+        and MeterProvider is not None
+    ):
+        metrics_reader = PeriodicExportingMetricReader(
+            GoogleCloudMetricsExporter(project_id=project_id),
+            interval_millis=10000,  # Export every 10 seconds
+        )
 
-    # Meter provider
-    meter_provider = MeterProvider(metric_readers=[metrics_reader])
-    metrics.set_meter_provider(meter_provider)
+        # Meter provider
+        meter_provider = MeterProvider(metric_readers=[metrics_reader])
+        metrics.set_meter_provider(meter_provider)
+    else:
+        # Ensure a meter provider exists even if exporters are unavailable
+        try:
+            meter_provider = metrics.get_meter_provider()
+        except Exception:
+            meter_provider = None
 
     # ========================================================================
     # Auto-Instrumentation
     # ========================================================================
 
     # FastAPI instrumentation
-    FastAPIInstrumentor.instrument_app(app)
+    # Instrument when instrumentors are available (no-op fallbacks exist)
+    try:
+        FastAPIInstrumentor.instrument_app(app)
+    except Exception:
+        pass
 
-    # External library instrumentation
-    RequestsInstrumentor().instrument()
-    HTTPXClientInstrumentor().instrument()
-    RedisInstrumentor().instrument()
+    try:
+        RequestsInstrumentor().instrument()
+    except Exception:
+        pass
 
-    # Logging instrumentation (adds trace context to logs)
-    LoggingInstrumentor().instrument()
+    try:
+        HTTPXClientInstrumentor().instrument()
+    except Exception:
+        pass
+
+    try:
+        RedisInstrumentor().instrument()
+    except Exception:
+        pass
+
+    try:
+        LoggingInstrumentor().instrument()
+    except Exception:
+        pass
 
     logger.info("OpenTelemetry setup complete")
 
@@ -131,8 +223,8 @@ class TraceContextFilter(logging.Filter):
         span_context = trace.get_current_span().get_span_context()
 
         if span_context and span_context.is_valid:
-            record.trace_id = format(span_context.trace_id, '032x')
-            record.span_id = format(span_context.span_id, '016x')
+            record.trace_id = format(span_context.trace_id, "032x")
+            record.span_id = format(span_context.span_id, "016x")
         else:
             record.trace_id = "0" * 32
             record.span_id = "0" * 16
@@ -209,14 +301,12 @@ def define_custom_metrics() -> dict:
         "api_requests_total",
         unit="1",
         description="Total API requests",
-        attributes=["method", "endpoint", "status_code", "client_tier"]
     )
 
     api_latency = meter.create_histogram(
         "api_latency_seconds",
         unit="s",
         description="API request latency",
-        attributes=["method", "endpoint", "status_code"]
     )
 
     # Business Metrics
@@ -224,28 +314,23 @@ def define_custom_metrics() -> dict:
         "projects_created_total",
         unit="1",
         description="Total projects created",
-        attributes=["team", "environment"]
     )
 
     compliance_violations_total = meter.create_counter(
         "compliance_violations_total",
         unit="1",
         description="Compliance violations detected",
-        attributes=["violation_type", "severity", "resource_type"]
     )
 
     cost_anomalies_detected = meter.create_counter(
         "cost_anomalies_total",
         unit="1",
         description="Cost anomalies detected",
-        attributes=["project_id", "service", "severity"]
     )
 
     # Resource Metrics
     active_projects = meter.create_up_down_counter(
-        "active_projects",
-        unit="1",
-        description="Number of active projects"
+        "active_projects", unit="1", description="Number of active projects"
     )
 
     # Cache Metrics
@@ -253,14 +338,12 @@ def define_custom_metrics() -> dict:
         "cache_hits_total",
         unit="1",
         description="Cache hits",
-        attributes=["cache_name", "key_pattern"]
     )
 
     cache_misses_total = meter.create_counter(
         "cache_misses_total",
         unit="1",
         description="Cache misses",
-        attributes=["cache_name", "key_pattern", "reason"]
     )
 
     return {

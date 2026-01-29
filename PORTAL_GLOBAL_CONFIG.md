@@ -207,11 +207,11 @@ ENV ENABLE_HTTPS=true
 server {
     listen 5173;
     server_name 192.168.168.42;
-    
+
     location / {
         proxy_pass http://localhost:5173;
     }
-    
+
     location /api {
         proxy_pass http://192.168.168.42:8080;
     }
@@ -223,14 +223,14 @@ server {
 server {
     listen 443 ssl http2;
     server_name elevatediq.ai www.elevatediq.ai;
-    
+
     ssl_certificate /etc/letsencrypt/live/elevatediq.ai/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/elevatediq.ai/privkey.pem;
-    
+
     location /portal {
         proxy_pass http://localhost:5173;
     }
-    
+
     location /lz {
         proxy_pass http://localhost:8080;
     }

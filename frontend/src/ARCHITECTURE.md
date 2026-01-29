@@ -2,7 +2,7 @@
  * ============================================================================
  * FRONTEND ARCHITECTURE: Enterprise React with TanStack Query + Zustand
  * ============================================================================
- * 
+ *
  * This file demonstrates the complete frontend architecture pattern:
  * - State management: Zustand (lightweight, DevTools support)
  * - Data fetching: TanStack Query (caching, background sync, retry logic)
@@ -459,37 +459,37 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
  * ============================================================================
  * Part 7: Performance Optimizations Summary
  * ============================================================================
- * 
+ *
  * 1. TanStack Query Benefits:
  *    - Automatic caching (staleTime = 5min)
  *    - Background refetching
  *    - Request deduplication (same query run twice = 1 request)
  *    - Optimistic updates (show result before server confirms)
  *    - Retry logic (3 attempts with exponential backoff)
- * 
+ *
  * 2. Zustand Benefits:
  *    - Lightweight (1.2KB gzipped)
  *    - DevTools support (time travel debugging)
  *    - localStorage persistence
  *    - Subscription system (update without re-render)
- * 
+ *
  * 3. React Patterns:
  *    - React.memo prevents unnecessary re-renders
  *    - Suspense + code splitting loads faster
  *    - Error boundaries gracefully handle crashes
  *    - Virtual scrolling renders 1000s efficiently (only visible items)
- * 
+ *
  * 4. Network Efficiency:
  *    - Request deduplication (same query twice = 1 HTTP)
  *    - Cache-first strategy (5 min stale time)
  *    - Background refetch (automatic sync)
  *    - Batch queries (useQueries) fetch multiple items in parallel
- * 
+ *
  * 5. User Experience:
  *    - Optimistic updates (instant feedback)
  *    - Skeleton loaders (perceived performance)
  *    - Error boundaries (graceful degradation)
  *    - Pagination (initial page loads fast)
- * 
+ *
  * ============================================================================
  */

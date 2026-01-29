@@ -29,4 +29,3 @@ terraform -chdir=02-network apply
 - Subnets (3 per AZ for HA)
 - Firewall rules (internal, health checks, outbound)
 - Cloud NAT (for outbound internet)
-

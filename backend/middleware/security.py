@@ -8,12 +8,12 @@ Implements:
 - CORS hardening
 - Input sanitization
 """
+import logging
 import os
 import re
-import uuid
 import time
-import logging
-from typing import Optional, Set
+import uuid
+from typing import Set
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ============================================================================
 
+
 class SecurityConfig:
     """Security configuration from environment."""
 
@@ -33,9 +34,9 @@ class SecurityConfig:
     IS_PRODUCTION = ENVIRONMENT in ("production", "prod")
 
     # CORS
-    ALLOWED_ORIGINS: Set[str] = set(
-        os.getenv("ALLOWED_ORIGINS", "").split(",")
-    ) if os.getenv("ALLOWED_ORIGINS") else set()
+    ALLOWED_ORIGINS: Set[str] = (
+        set(os.getenv("ALLOWED_ORIGINS", "").split(",")) if os.getenv("ALLOWED_ORIGINS") else set()
+    )
 
     # Request limits
     MAX_REQUEST_SIZE_MB = int(os.getenv("MAX_REQUEST_SIZE_MB", "10"))
@@ -62,27 +63,19 @@ class SecurityConfig:
 # Security Headers
 # ============================================================================
 
+
 def get_security_headers(request: Request) -> dict:
     """Generate security headers for response."""
     headers = {
         # Prevent XSS
         "X-Content-Type-Options": "nosniff",
         "X-XSS-Protection": "1; mode=block",
-
         # Prevent clickjacking
         "X-Frame-Options": "SAMEORIGIN",
-
         # Referrer policy
         "Referrer-Policy": "strict-origin-when-cross-origin",
-
         # Permissions policy (formerly Feature-Policy)
-        "Permissions-Policy": (
-            "camera=(), "
-            "microphone=(), "
-            "geolocation=(), "
-            "payment=()"
-        ),
-
+        "Permissions-Policy": ("camera=(), " "microphone=(), " "geolocation=(), " "payment=()"),
         # Cache control for API responses
         "Cache-Control": "no-store, no-cache, must-revalidate, private",
         "Pragma": "no-cache",
@@ -90,15 +83,14 @@ def get_security_headers(request: Request) -> dict:
 
     # HSTS (only in production with HTTPS)
     if SecurityConfig.IS_PRODUCTION:
-        headers["Strict-Transport-Security"] = (
-            f"max-age={SecurityConfig.HSTS_MAX_AGE}; includeSubDomains; preload"
-        )
+        headers[
+            "Strict-Transport-Security"
+        ] = f"max-age={SecurityConfig.HSTS_MAX_AGE}; includeSubDomains; preload"
 
     # CSP (for HTML responses, though API typically returns JSON)
     if not request.url.path.startswith("/api/"):
         csp = "; ".join(
-            f"{directive} {value}"
-            for directive, value in SecurityConfig.CSP_DIRECTIVES.items()
+            f"{directive} {value}" for directive, value in SecurityConfig.CSP_DIRECTIVES.items()
         )
         headers["Content-Security-Policy"] = csp
 
@@ -108,6 +100,7 @@ def get_security_headers(request: Request) -> dict:
 # ============================================================================
 # Input Validation
 # ============================================================================
+
 
 class InputValidator:
     """Validate and sanitize input data."""
@@ -175,6 +168,7 @@ class InputValidator:
 # Request Context
 # ============================================================================
 
+
 class RequestContext:
     """Request context for tracking and logging."""
 
@@ -217,13 +211,14 @@ class RequestContext:
             "user_agent": self.user_agent,
             "path": self.path,
             "method": self.method,
-            "duration_ms": self.duration_ms
+            "duration_ms": self.duration_ms,
         }
 
 
 # ============================================================================
 # Security Middleware
 # ============================================================================
+
 
 class SecurityMiddleware(BaseHTTPMiddleware):
     """
@@ -252,13 +247,14 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > SecurityConfig.MAX_REQUEST_SIZE_BYTES:
             from fastapi.responses import JSONResponse
+
             return JSONResponse(
                 status_code=413,
                 content={
                     "error": True,
                     "error_code": "REQUEST_TOO_LARGE",
-                    "message": f"Request body exceeds maximum size of {SecurityConfig.MAX_REQUEST_SIZE_MB}MB"
-                }
+                    "message": f"Request body exceeds maximum size of {SecurityConfig.MAX_REQUEST_SIZE_MB}MB",
+                },
             )
 
         # Process request
@@ -280,7 +276,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         logger.info(
             f"{request.method} {request.url.path} {response.status_code} "
             f"({ctx.duration_ms:.2f}ms)",
-            extra=ctx.to_dict()
+            extra=ctx.to_dict(),
         )
 
         return response
@@ -290,14 +286,13 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 # CORS Configuration Helper
 # ============================================================================
 
+
 def get_cors_config() -> dict:
     """Get CORS configuration for FastAPI."""
 
     if SecurityConfig.IS_PRODUCTION:
         # Production: Only allow specific origins
-        allowed_origins = list(SecurityConfig.ALLOWED_ORIGINS) or [
-            "https://portal.landing-zone.io"
-        ]
+        allowed_origins = list(SecurityConfig.ALLOWED_ORIGINS) or ["https://portal.landing-zone.io"]
     else:
         # Development: Allow localhost
         allowed_origins = [

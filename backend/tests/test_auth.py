@@ -7,22 +7,21 @@ Tests cover:
 - RBAC permissions
 - Auth middleware
 """
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from fastapi import HTTPException
+from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import HTTPException
 from middleware.auth import (
-    User,
-    Permission,
-    ROLE_PERMISSIONS,
-    get_permissions_for_roles,
-    get_current_user,
-    require_permissions,
-    require_roles,
     AuthConfig,
     AuthenticationService,
     IAPTokenValidator,
     OAuth2TokenValidator,
+    Permission,
+    User,
+    get_current_user,
+    get_permissions_for_roles,
+    require_permissions,
+    require_roles,
 )
 
 
@@ -80,18 +79,10 @@ class TestUserModel:
     def test_user_is_admin_property(self):
         """is_admin property should return True for admin role."""
         admin = User(
-            id="1",
-            email="admin@test.com",
-            roles=["admin"],
-            permissions=[],
-            auth_method="test"
+            id="1", email="admin@test.com", roles=["admin"], permissions=[], auth_method="test"
         )
         viewer = User(
-            id="2",
-            email="viewer@test.com",
-            roles=["viewer"],
-            permissions=[],
-            auth_method="test"
+            id="2", email="viewer@test.com", roles=["viewer"], permissions=[], auth_method="test"
         )
 
         assert admin.is_admin is True
@@ -100,11 +91,7 @@ class TestUserModel:
     def test_user_domain_extraction(self):
         """domain property should extract domain from email."""
         user = User(
-            id="1",
-            email="user@example.com",
-            roles=["viewer"],
-            permissions=[],
-            auth_method="test"
+            id="1", email="user@example.com", roles=["viewer"], permissions=[], auth_method="test"
         )
 
         assert user.domain == "example.com"
@@ -119,7 +106,7 @@ class TestAuthenticationService:
         service = AuthenticationService()
 
         request = MagicMock()
-        request.headers = {}
+        request.headers = MagicMock()
         request.headers.get = lambda x, default="": default
 
         user = await service.authenticate(request)
@@ -131,8 +118,11 @@ class TestAuthenticationService:
         service = AuthenticationService()
 
         request = MagicMock()
-        request.headers = {"authorization": "Bearer invalid_token"}
-        request.headers.get = lambda x, default="": request.headers.get(x, default)
+        request.headers = MagicMock()
+        # emulate dict-like get for authorization header
+        request.headers.get = lambda x, default="": {"authorization": "Bearer invalid_token"}.get(
+            x, default
+        )
 
         with patch.object(OAuth2TokenValidator, "validate", return_value=None):
             with patch.object(IAPTokenValidator, "validate", return_value=None):
@@ -150,7 +140,7 @@ class TestGetCurrentUser:
         with patch.object(AuthConfig, "IS_PRODUCTION", True):
             with patch.object(AuthConfig, "REQUIRE_AUTH", True):
                 request = MagicMock()
-                request.headers = {}
+                request.headers = MagicMock()
                 request.headers.get = lambda x, default="": default
 
                 with patch("middleware.auth.auth_service.authenticate", return_value=None):
@@ -171,7 +161,7 @@ class TestRequirePermissions:
             email="viewer@test.com",
             roles=["viewer"],
             permissions=[Permission.PROJECTS_READ],
-            auth_method="test"
+            auth_method="test",
         )
 
         @require_permissions(Permission.ADMIN_USERS)
@@ -191,7 +181,7 @@ class TestRequirePermissions:
             email="admin@test.com",
             roles=["admin"],
             permissions=[Permission.ADMIN_USERS],
-            auth_method="test"
+            auth_method="test",
         )
 
         @require_permissions(Permission.ADMIN_USERS)
@@ -209,11 +199,7 @@ class TestRequireRoles:
     async def test_missing_role_raises_403(self):
         """Missing role should raise 403."""
         user = User(
-            id="1",
-            email="viewer@test.com",
-            roles=["viewer"],
-            permissions=[],
-            auth_method="test"
+            id="1", email="viewer@test.com", roles=["viewer"], permissions=[], auth_method="test"
         )
 
         @require_roles("admin")
@@ -229,11 +215,7 @@ class TestRequireRoles:
     async def test_has_role_succeeds(self):
         """Having required role should succeed."""
         user = User(
-            id="1",
-            email="admin@test.com",
-            roles=["admin"],
-            permissions=[],
-            auth_method="test"
+            id="1", email="admin@test.com", roles=["admin"], permissions=[], auth_method="test"
         )
 
         @require_roles("admin")
@@ -247,11 +229,7 @@ class TestRequireRoles:
     async def test_one_of_multiple_roles_succeeds(self):
         """Having one of multiple required roles should succeed."""
         user = User(
-            id="1",
-            email="editor@test.com",
-            roles=["editor"],
-            permissions=[],
-            auth_method="test"
+            id="1", email="editor@test.com", roles=["editor"], permissions=[], auth_method="test"
         )
 
         @require_roles("admin", "editor")

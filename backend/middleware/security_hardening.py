@@ -3,18 +3,16 @@ Security hardening middleware for FastAPI.
 Implements: Content Security Headers, HSTS, X-Frame-Options, CORS, CSRF protection
 """
 
-import hashlib
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from functools import lru_cache
+from typing import Any, Dict
 
+import jwt
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from google.cloud import secretmanager
 from google.cloud import logging as cloud_logging
-import jwt
+from google.cloud import secretmanager
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +28,9 @@ class SecurityHeadersMiddleware:
         response = await call_next(request)
 
         # Strict-Transport-Security (HSTS)
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        response.headers[
+            "Strict-Transport-Security"
+        ] = "max-age=31536000; includeSubDomains; preload"
 
         # Content Security Policy (CSP)
         response.headers["Content-Security-Policy"] = (
@@ -90,7 +90,7 @@ class CSRFProtectionMiddleware:
         payload = {
             "session_id": session_id,
             "exp": datetime.utcnow() + timedelta(seconds=self.TOKEN_EXPIRY),
-            "iat": datetime.utcnow()
+            "iat": datetime.utcnow(),
         }
         return jwt.encode(payload, self.secret_key, algorithm="HS256")
 
@@ -159,7 +159,9 @@ class InputSanitizationMiddleware:
             elif isinstance(value, dict):
                 data[key] = self.sanitize_dict(value)
             elif isinstance(value, list):
-                data[key] = [self.sanitize_dict(item) if isinstance(item, dict) else item for item in value]
+                data[key] = [
+                    self.sanitize_dict(item) if isinstance(item, dict) else item for item in value
+                ]
         return data
 
     @staticmethod
@@ -248,14 +250,17 @@ class RateLimitSecurityMiddleware:
 
     async def middleware(self, request: Request, call_next):
         # Apply stricter limits to security endpoints
-        if any(path in request.url.path for path in ["/auth/login", "/auth/register", "/api/admin"]):
+        if any(
+            path in request.url.path for path in ["/auth/login", "/auth/register", "/api/admin"]
+        ):
             ip = self._get_client_ip(request)
 
             # Clean old requests
             now = datetime.utcnow()
             if ip in self.requests:
                 self.requests[ip] = [
-                    req_time for req_time in self.requests[ip]
+                    req_time
+                    for req_time in self.requests[ip]
                     if (now - req_time).total_seconds() < self.window_seconds
                 ]
 

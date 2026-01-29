@@ -11,12 +11,10 @@ Provides:
 import asyncio
 import json
 import logging
-from typing import Optional, Dict, Any, Callable, TypeVar
-from datetime import datetime, timedelta
-import hashlib
+from datetime import datetime
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 import aioredis
-from redis import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +42,7 @@ CACHE_TTL_CONFIG = {
 # Cache Locks (Thundering Herd Prevention)
 # ============================================================================
 
+
 class CacheLock:
     """Distributed lock for cache updates."""
 
@@ -60,16 +59,14 @@ class CacheLock:
 
         for attempt in range(max_retries):
             # Try to set lock (only if not exists)
-            acquired = await self.redis.set(
-                self.key, self.lock_value, ex=self.ttl, nx=True
-            )
+            acquired = await self.redis.set(self.key, self.lock_value, ex=self.ttl, nx=True)
 
             if acquired:
                 logger.debug(f"Lock acquired: {self.key}")
                 return self
 
             # Wait before retry
-            await asyncio.sleep(retry_delay * (2 ** attempt))  # Exponential backoff
+            await asyncio.sleep(retry_delay * (2**attempt))  # Exponential backoff
 
         raise TimeoutError(f"Could not acquire lock: {self.key}")
 
@@ -85,6 +82,7 @@ class CacheLock:
 # ============================================================================
 # Multi-Tier Cache
 # ============================================================================
+
 
 class CacheService:
     """Multi-tier caching: request scope → Redis → database."""
@@ -105,9 +103,7 @@ class CacheService:
             await self.redis.close()
             logger.info("Cache service disconnected from Redis")
 
-    async def get(
-        self, key: str, fetch_fn: Callable, ttl: Optional[int] = None
-    ) -> Any:
+    async def get(self, key: str, fetch_fn: Callable, ttl: Optional[int] = None) -> Any:
         """
         Get value with multi-tier fallback.
 
@@ -173,9 +169,7 @@ class CacheService:
                     cache_ttl = cache_ttl or 300  # Default 5 minutes
 
                 # Store in Redis
-                await self.redis.setex(
-                    key, cache_ttl, json.dumps(value, default=str)
-                )
+                await self.redis.setex(key, cache_ttl, json.dumps(value, default=str))
                 logger.debug(f"Cached: {key} (ttl={cache_ttl}s)")
 
                 return value
@@ -242,9 +236,7 @@ class CacheService:
         # Store in Redis
         if self.redis:
             cache_ttl = ttl or CACHE_TTL_CONFIG.get(key.split(":")[0], 300)
-            await self.redis.setex(
-                key, cache_ttl, json.dumps(value, default=str)
-            )
+            await self.redis.setex(key, cache_ttl, json.dumps(value, default=str))
 
     async def delete(self, key: str):
         """Delete a cache entry."""
@@ -280,6 +272,7 @@ class CacheService:
 # ============================================================================
 # Cache Warmer (Background Job)
 # ============================================================================
+
 
 class CacheWarmer:
     """Pre-populate cache on startup."""
