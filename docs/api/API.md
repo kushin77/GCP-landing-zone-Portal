@@ -4,7 +4,7 @@
 
 The Landing Zone Portal exposes RESTful APIs for:
 - Cost analytics and trend analysis
-- Resource inventory and governance  
+- Resource inventory and governance
 - Compliance status and audit trails
 - Policy violations and remediation
 
@@ -242,5 +242,5 @@ console.log(`Current month: $${costs.current_month}`);
 
 ---
 
-**API Version**: 1.0  
+**API Version**: 1.0
 **Last Updated**: 2026-01-18

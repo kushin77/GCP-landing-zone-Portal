@@ -1,0 +1,131 @@
+name: Sync from Landing Zone
+
+on:
+  workflow_dispatch:  # Manual trigger
+  repository_dispatch:
+    types: [lz-update]  # Triggered by LZ repo webhook
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+jobs:
+  sync-documentation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout Portal repo
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "Portal Sync Bot"
+          git config user.email "noreply@portal.local"
+
+      - name: Checkout Landing Zone repo
+        run: |
+          git clone --depth 1 https://github.com/kushin77/GCP-landing-zone.git /tmp/lz
+
+      - name: Sync Documentation
+        run: |
+          # Create sync directories if they don't exist
+          mkdir -p ./docs/lz-reference
+          mkdir -p ./config/lz-config
+
+          # Sync documentation
+          if [ -d "/tmp/lz/docs" ]; then
+            cp -r /tmp/lz/docs/* ./docs/lz-reference/ || true
+          fi
+
+          # Sync configuration files
+          if [ -f "/tmp/lz/pmo.yaml" ]; then
+            cp /tmp/lz/pmo.yaml ./config/lz-config/
+          fi
+
+          if [ -f "/tmp/lz/ENFORCEMENT_GATES.md" ]; then
+            cp /tmp/lz/ENFORCEMENT_GATES.md ./docs/lz-reference/
+          fi
+
+          if [ -f "/tmp/lz/RUNBOOKS.md" ]; then
+            cp /tmp/lz/RUNBOOKS.md ./docs/lz-reference/
+          fi
+
+          # Sync Terraform files (reference only)
+          if [ -d "/tmp/lz/terraform" ]; then
+            mkdir -p ./docs/lz-reference/terraform
+            cp -r /tmp/lz/terraform/01-foundation ./docs/lz-reference/terraform/ || true
+            cp -r /tmp/lz/terraform/02-network ./docs/lz-reference/terraform/ || true
+            cp -r /tmp/lz/terraform/03-security ./docs/lz-reference/terraform/ || true
+            cp -r /tmp/lz/terraform/04-workloads ./docs/lz-reference/terraform/ || true
+            cp -r /tmp/lz/terraform/05-observability ./docs/lz-reference/terraform/ || true
+          fi
+
+          # Create sync metadata file
+          cat > ./config/lz-config/sync-metadata.json <<EOF
+          {
+            "last_sync": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "source": "https://github.com/kushin77/GCP-landing-zone",
+            "sync_layers": ["git", "documentation", "configuration"],
+            "files_synced": $(find ./docs/lz-reference ./config/lz-config -type f | wc -l)
+          }
+          EOF
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [[ -z $(git status -s) ]]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git add -A
+          git commit -m "chore(sync): sync documentation and config from landing zone [$(date -I)]
+
+          - Updated docs from GCP-landing-zone
+          - Synced pmo.yaml configuration
+          - Updated enforcement gates and runbooks
+          - Terraform references updated
+          - Sync trigger: ${{ github.event_name }}"
+          git push
+
+      - name: Create Pull Request (if needed)
+        if: steps.check_changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore(sync): sync from landing zone"
+          title: "chore(sync): landing zone sync [$(date +%Y-%m-%d)]"
+          body: |
+            ## Landing Zone Sync
+
+            This PR syncs updates from the GCP-landing-zone repository.
+
+            ### Synced Items
+            - ✅ Documentation files
+            - ✅ pmo.yaml configuration
+            - ✅ Enforcement gates
+            - ✅ Runbooks and operational procedures
+            - ✅ Terraform reference files
+
+            ### Auto-Merge
+            This PR will auto-merge after all checks pass.
+          branch: "sync/lz-$(date +%Y%m%d-%H%M%S)"
+          delete-branch: true
+          auto-merge: true
+          auto-merge-method: squash
+
+      - name: Post Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            Landing Zone Sync ${{ job.status }}
+            Changes: ${{ steps.check_changes.outputs.has_changes }}
+            Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true

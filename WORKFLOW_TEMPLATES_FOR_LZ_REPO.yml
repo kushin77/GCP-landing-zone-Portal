@@ -1,0 +1,47 @@
+# This workflow should be added to the GCP-landing-zone repository
+# Path: .github/workflows/notify-portal-of-changes.yml
+
+name: Notify Portal of Landing Zone Changes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - 'pmo.yaml'
+      - 'docs/**'
+      - 'ENFORCEMENT_GATES.md'
+      - 'RUNBOOKS.md'
+      - 'README.md'
+      - 'ARCHITECTURE.md'
+
+jobs:
+  notify-portal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Landing Zone repo
+        uses: actions/checkout@v4
+
+      - name: Trigger Portal Sync Workflow
+        run: |
+          curl -X POST \
+            https://api.github.com/repos/kushin77/GCP-landing-zone-Portal/dispatches \
+            -H "Authorization: token ${{ secrets.PORTAL_SYNC_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d '{
+              "event_type": "lz-update",
+              "client_payload": {
+                "commit_sha": "${{ github.sha }}",
+                "commit_message": "${{ github.event.head_commit.message }}",
+                "commit_author": "${{ github.actor }}",
+                "files_changed": "${{ github.event.head_commit.modified }}",
+                "trigger_time": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+                "branch": "${{ github.ref_name }}"
+              }
+            }'
+
+      - name: Log notification
+        run: |
+          echo "Portal sync triggered for commit ${{ github.sha }}"
+          echo "Changed files: ${{ github.event.head_commit.modified }}"
