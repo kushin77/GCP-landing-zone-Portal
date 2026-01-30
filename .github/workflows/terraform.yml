@@ -1,0 +1,42 @@
+name: Terraform CI
+
+on:
+  push:
+    paths:
+      - 'terraform/**'
+  pull_request:
+    paths:
+      - 'terraform/**'
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Format
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Terraform Validate
+        run: |
+          cd terraform/01-foundation
+          terraform init -backend=false
+          terraform validate
+
+      - name: Install Conftest
+        run: |
+          wget -O conftest https://github.com/open-policy-agent/conftest/releases/download/v0.48.0/conftest_0.48.0_Linux_x86_64.tar.gz
+          tar -xzf conftest_0.48.0_Linux_x86_64.tar.gz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Run Conftest on Terraform
+        run: conftest test terraform/ --policy .github/policies/terraform.rego
+
+      - name: Run Conftest on Kubernetes
+        run: conftest test k8s/ --policy .github/policies/k8s.rego
