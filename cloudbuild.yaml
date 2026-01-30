@@ -307,6 +307,27 @@ steps:
     waitFor: ['scan-frontend-image']
 
   # ==========================================================================
+  # Stage 7.5: Sign Images with Cosign
+  # ==========================================================================
+  - name: 'cgr.dev/chainguard/cosign:latest'
+    id: 'sign-backend-image'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        cosign sign --key gcpkms://projects/${PROJECT_ID}/locations/${_REGION}/keyRings/cosign/cryptoKeys/signing-key/cryptoKeyVersions/1 ${_BACKEND_IMAGE}:${COMMIT_SHA}
+    waitFor: ['push-backend']
+
+  - name: 'cgr.dev/chainguard/cosign:latest'
+    id: 'sign-frontend-image'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        cosign sign --key gcpkms://projects/${PROJECT_ID}/locations/${_REGION}/keyRings/cosign/cryptoKeys/signing-key/cryptoKeyVersions/1 ${_FRONTEND_IMAGE}:${COMMIT_SHA}
+    waitFor: ['push-frontend']
+
+  # ==========================================================================
   # Stage 8: Deploy to Staging
   # ==========================================================================
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -383,6 +404,13 @@ images:
   - '${_BACKEND_IMAGE}:latest'
   - '${_FRONTEND_IMAGE}:${COMMIT_SHA}'
   - '${_FRONTEND_IMAGE}:latest'
+
+artifacts:
+  objects:
+    location: 'gs://${PROJECT_ID}-build-artifacts/${BUILD_ID}/'
+    paths:
+      - 'backend/backend-sbom.json'
+      - 'frontend/frontend-sbom.json'
 
 timeout: '1800s'  # 30 minutes max
 
