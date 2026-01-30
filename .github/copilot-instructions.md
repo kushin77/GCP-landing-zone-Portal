@@ -46,6 +46,20 @@ This is a **GCP Landing Zone Portal** - an enterprise-grade control plane for ma
 - **External APIs**: RESTful communication between frontend/backend; WebSocket for real-time updates
 - **Caching**: Redis for session/API response caching
 - **Observability**: Prometheus metrics exposed on `/metrics`; OpenTelemetry for distributed tracing
+ 
+Focus on maintaining the "FAANG-grade" quality: comprehensive error handling, security-first design, and production-ready patterns.
 
-Focus on maintaining the "FAANG-grade" quality: comprehensive error handling, security-first design, and production-ready patterns.</content>
-<parameter name="filePath">E:\Coding\Dad\GCP-landing-zone-Portal\.github\copilot-instructions.md
+## Agent Checklist (practical)
+
+- **Start**: Read `docs/LOCAL_SETUP.md`, `docs/TESTING.md`, and `backend/main.py` before making code changes.
+- **Local run**: Use `./run.sh dev` or `docker-compose -f docker-compose.dev.yml up -d` to run the stack locally.
+- **Testing**: Run `cd backend && pytest -q` for backend unit tests; update or add tests for behavior changes.
+- **Auth & Secrets**: Never hardcode credentials. Use `GCP_PROJECT_ID` env and Google Secret Manager for secrets.
+- **Observability**: Keep metrics on `/metrics` and preserve OpenTelemetry instrumentation when modifying HTTP handlers.
+- **PRs**: Keep changes small, include test plan, list affected Terraform layers if relevant.
+
+## Quick Links
+- Active feature branch: copilot/ruling-krill — PR: [WIP] Fix issue related to CI/CD and release hardening
+- Dev compose: `docker-compose.dev.yml` (hot reload) — production compose: `docker-compose.yml`
+
+If anything in this guide is unclear, tell me which section and I will expand with concrete examples from the codebase.
