@@ -55,7 +55,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
-from opentelemetry.instrumentation.fastapi import FastInstrumentor
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import Counter, Histogram, start_http_server
 
 from config import ALLOWED_ORIGINS, API_CONFIG, LOGGING_CONFIG, SERVICE_NAME, SERVICE_VERSION
@@ -209,10 +209,14 @@ def setup_observability():
 
     # Export to Cloud Trace if in production
     if os.getenv("ENVIRONMENT") == "production":
-        cloud_trace_exporter = CloudTraceSpanExporter()
-        span_processor = BatchSpanProcessor(cloud_trace_exporter)
-        trace.get_tracer_provider().add_span_processor(span_processor)
-        logger.info("OpenTelemetry tracing enabled with Cloud Trace")
+        try:
+            cloud_trace_exporter = CloudTraceSpanExporter()
+            span_processor = BatchSpanProcessor(cloud_trace_exporter)
+            trace.get_tracer_provider().add_span_processor(span_processor)
+            logger.info("OpenTelemetry tracing enabled with Cloud Trace")
+        except Exception as e:
+            logger.warning(f"Failed to set up Cloud Trace: {e}")
+            logger.info("OpenTelemetry tracing enabled (console output for development)")
     else:
         logger.info("OpenTelemetry tracing enabled (console output for development)")
 
@@ -250,7 +254,7 @@ def create_app() -> FastAPI:
     )
 
     # Instrument FastAPI with OpenTelemetry
-    FastInstrumentor.instrument_app(app)
+    FastAPIInstrumentor.instrument_app(app)
 
     # Register exception handlers
     register_exception_handlers(app)
