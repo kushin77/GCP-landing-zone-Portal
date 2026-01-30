@@ -63,3 +63,37 @@ Focus on maintaining the "FAANG-grade" quality: comprehensive error handling, se
 - Dev compose: `docker-compose.dev.yml` (hot reload) — production compose: `docker-compose.yml`
 
 If anything in this guide is unclear, tell me which section and I will expand with concrete examples from the codebase.
+
+## Issue-driven Workflow (required)
+
+All agent work must follow an issue-driven flow. This is mandatory for traceability and auditability.
+
+1. **Create an issue** before starting work. Use a clear title and include a short plan.
+	- Example: `Agent workflow: implement X and tests`
+	- Use `gh issue create --title "..." --body "..."` or create in GitHub UI.
+
+2. **Reference the issue in commits and PRs**. Include the issue number in the commit subject or body.
+	- Example commit subject: `feat(api): add health-check endpoint (#162)`
+	- Example commit body: `Closes #162 — adds HealthChecker and unit tests.`
+
+3. **Update the issue while you work** with status comments: plan, in-progress, test results, and review request.
+	- Example: `gh issue comment 162 --body "WIP: implemented health check; running tests next"`
+
+4. **Run tests locally or in the devcontainer** and paste failing/passing summaries into the issue. Use the devcontainer for reproducible results:
+
+```bash
+# Start devcontainer or Docker Compose dev
+./run.sh dev
+
+# Inside backend container or devcontainer
+cd backend
+pytest -q
+```
+
+5. **Open a pull request** referencing the issue. Use small, focused changes and request a peer review.
+	- Example: `gh pr create --title "fix(auth): add token refresh (#162)" --body "Implements token refresh. Closes #162."`
+
+6. **After merge, close the issue and add a final comment summarizing results** (tests, reviewers, deployment notes).
+	- Example: `gh issue close 162 --comment "Completed: all tests passing, merged PR #133. Closing issue."`
+
+These steps are enforced as a human workflow; include exact `gh` CLI commands in issue comments when possible.
