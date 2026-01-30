@@ -16,7 +16,8 @@ global:
 #         - targets: []
 
 # Rule files
-rule_files: []
+rule_files:
+  - alerting_rules.yml
 
 # Scrape configurations
 scrape_configs:
