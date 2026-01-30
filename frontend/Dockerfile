@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Dependencies - Install node modules
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:25-alpine AS deps
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN \
 # -----------------------------------------------------------------------------
 # Stage 2: Builder - Build the application
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:25-alpine AS builder
 
 WORKDIR /app
 
