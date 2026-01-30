@@ -45,7 +45,7 @@ RUN npm run build
 # -----------------------------------------------------------------------------
 # Stage 3: Production - Nginx with security hardening
 # -----------------------------------------------------------------------------
-FROM nginx:1.25-alpine AS production
+FROM nginx:1.29-alpine AS production
 
 # Install security updates
 RUN apk update && apk upgrade && rm -rf /var/cache/apk/*
