@@ -404,3 +404,15 @@ spec:
     ports:
     - protocol: TCP
       port: 443
+---
+# Pod Disruption Budget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: portal-backend-pdb
+  namespace: portal
+spec:
+  minAvailable: 2  # Ensure at least 2 pods are available during disruptions
+  selector:
+    matchLabels:
+      app: portal-backend
