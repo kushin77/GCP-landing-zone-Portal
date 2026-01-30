@@ -24,7 +24,7 @@ from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 from middleware.security import SecurityMiddleware, get_cors_config
 
 # Import routers
-from routers import ai, auth, compliance, costs, discovery, projects, sync, workflows
+from routers import ai, analysis, auth, compliance, costs, discovery, projects, sync, workflows
 from services.cache_service import get_cache_service, shutdown_cache
 from utils.observability import setup_observability
 
@@ -220,6 +220,7 @@ def create_app() -> FastAPI:
     app.include_router(ai.router)
     app.include_router(sync.router)
     app.include_router(discovery.router)
+    app.include_router(analysis.router)
 
     return app
 
@@ -347,5 +348,5 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        app, host="0.0.0.0", port=8080, log_level=LOGGING_CONFIG.get("level", "info").lower()
+        app, host="0.0.0.0", port=8082, log_level=LOGGING_CONFIG.get("level", "info").lower()
     )

@@ -383,7 +383,7 @@ steps:
       - install
       - -r
       - scripts/automation/requirements.txt
-  
+
   - name: 'gcr.io/cloud-builders/python'
     args:
       - python
@@ -468,6 +468,6 @@ python ci_monitoring.py --verbose --latest
 
 ---
 
-**Last Updated:** 2026-01-29  
-**Scripts Version:** 1.0  
+**Last Updated:** 2026-01-29
+**Scripts Version:** 1.0
 **Python Version:** 3.11+

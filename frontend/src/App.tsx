@@ -10,6 +10,7 @@ import Costs from './pages/Costs';
 import Compliance from './pages/Compliance';
 import Workflows from './pages/Workflows';
 import AIAssistant from './pages/AIAssistant';
+import Analysis from './pages/Analysis';
 import Layout from './components/Layout';
 import { ErrorBoundary, PageErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
@@ -84,6 +85,12 @@ const aiRoute = createRoute({
   component: AIAssistant,
 });
 
+const analysisRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/analysis',
+  component: Analysis,
+});
+
 // Create router
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -92,6 +99,7 @@ const routeTree = rootRoute.addChildren([
   complianceRoute,
   workflowsRoute,
   aiRoute,
+  analysisRoute,
 ]);
 
 const router = createRouter({ routeTree });

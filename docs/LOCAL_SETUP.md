@@ -131,7 +131,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 gunicorn -w 4 -b 0.0.0.0:8000 main:app
 ```
 
-**Access:** http://localhost:8000  
+**Access:** http://localhost:8000
 **API Docs:** http://localhost:8000/docs
 
 ### Frontend (React/Vite)
@@ -163,7 +163,7 @@ Using tmux (in separate terminals):
 # Terminal 1: Backend
 cd backend && uvicorn main:app --reload
 
-# Terminal 2: Frontend  
+# Terminal 2: Frontend
 cd frontend && npm run dev
 
 # Terminal 3: Testing/other work
@@ -376,5 +376,5 @@ npm audit fix
 
 ---
 
-**Last Updated:** 2026-01-29  
+**Last Updated:** 2026-01-29
 **Maintained by:** @kushin77

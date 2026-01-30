@@ -385,6 +385,22 @@ class APIClient {
     return data;
   }
 
+  // Analysis / RCA
+  async performRCAAnalysis(issueData: any) {
+    const { data } = await this.client.post('/api/v1/analysis/rca', issueData);
+    return data;
+  }
+
+  async getAvailableRCAServices() {
+    const { data } = await this.client.get('/api/v1/analysis/services');
+    return data;
+  }
+
+  async performBatchRCAAnalysis(issues: any[]) {
+    const { data } = await this.client.post('/api/v1/analysis/rca/batch', issues);
+    return data;
+  }
+
   // Health
   async getHealth() {
     const { data } = await this.client.get('/health');
