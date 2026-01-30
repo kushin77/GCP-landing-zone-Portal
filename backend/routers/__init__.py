@@ -1,6 +1,6 @@
 """
 Router initialization.
 """
-from . import ai, compliance, costs, projects, sync, workflows
+from . import ai, compliance, costs, discovery, projects, sync, workflows
 
-__all__ = ["projects", "costs", "compliance", "workflows", "ai", "sync"]
+__all__ = ["projects", "costs", "compliance", "workflows", "ai", "sync", "discovery"]

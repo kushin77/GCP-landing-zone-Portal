@@ -47,7 +47,7 @@ from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 from middleware.security import SecurityMiddleware, get_cors_config
 
 # Import routers
-from routers import ai, compliance, costs, projects, sync, workflows
+from routers import ai, compliance, costs, discovery, projects, sync, workflows
 from services.cache_service import get_cache_service, shutdown_cache
 
 # Observability
@@ -306,6 +306,7 @@ def create_app() -> FastAPI:
     app.include_router(workflows.router)
     app.include_router(ai.router)
     app.include_router(sync.router)
+    app.include_router(discovery.router)
 
     return app
 
