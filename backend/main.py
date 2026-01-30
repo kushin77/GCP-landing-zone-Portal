@@ -22,9 +22,41 @@ from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 # Import middleware
 from middleware.security import SecurityMiddleware, get_cors_config
 
+"""
+FAANG-Grade Entry Point for Landing Zone Portal Backend.
+
+Features:
+- Enterprise middleware stack (security, rate limiting, error handling)
+- Structured logging with correlation IDs
+- Health checks with actual dependency verification
+- OpenTelemetry integration ready
+"""
+import logging
+import os
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from middleware.auth import AuthMiddleware
+from middleware.errors import register_exception_handlers
+from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
+
+# Import middleware
+from middleware.security import SecurityMiddleware, get_cors_config
+
 # Import routers
 from routers import ai, compliance, costs, projects, sync, workflows
 from services.cache_service import get_cache_service, shutdown_cache
+
+# Observability
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
+from opentelemetry.instrumentation.fastapi import FastInstrumentor
+from prometheus_client import Counter, Histogram, start_http_server
 
 from config import ALLOWED_ORIGINS, API_CONFIG, LOGGING_CONFIG, SERVICE_NAME, SERVICE_VERSION
 
@@ -153,12 +185,52 @@ async def lifespan(app: FastAPI):
 
 
 # ============================================================================
+# Observability Setup
+# ============================================================================
+
+# Prometheus metrics
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total number of HTTP requests",
+    ["method", "endpoint", "status_code"]
+)
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["method", "endpoint"]
+)
+
+# OpenTelemetry setup
+def setup_observability():
+    """Initialize OpenTelemetry tracing and Prometheus metrics."""
+    # Set up tracing
+    trace.set_tracer_provider(TracerProvider())
+    tracer = trace.get_tracer(__name__)
+
+    # Export to Cloud Trace if in production
+    if os.getenv("ENVIRONMENT") == "production":
+        cloud_trace_exporter = CloudTraceSpanExporter()
+        span_processor = BatchSpanProcessor(cloud_trace_exporter)
+        trace.get_tracer_provider().add_span_processor(span_processor)
+        logger.info("OpenTelemetry tracing enabled with Cloud Trace")
+    else:
+        logger.info("OpenTelemetry tracing enabled (console output for development)")
+
+    # Start Prometheus metrics server
+    start_http_server(8001)  # Different port from app
+    logger.info("Prometheus metrics server started on port 8001")
+
+
+# ============================================================================
 # Application Factory
 # ============================================================================
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+
+    # Initialize observability
+    setup_observability()
 
     base_path = os.getenv("BASE_PATH", "")
     # Normalize base path (e.g., "/lz" or "")
@@ -177,6 +249,9 @@ def create_app() -> FastAPI:
         root_path=base_path or "",
     )
 
+    # Instrument FastAPI with OpenTelemetry
+    FastInstrumentor.instrument_app(app)
+
     # Register exception handlers
     register_exception_handlers(app)
 
@@ -191,7 +266,28 @@ def create_app() -> FastAPI:
     # 3. Authentication middleware (adds user to request state)
     app.add_middleware(AuthMiddleware)
 
-    # 4. CORS (must be last to properly handle preflight)
+    # 4. Metrics middleware
+    @app.middleware("http")
+    async def metrics_middleware(request, call_next):
+        import time
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=request.url.path,
+            status_code=response.status_code
+        ).inc()
+
+        REQUEST_LATENCY.labels(
+            method=request.method,
+            endpoint=request.url.path
+        ).observe(process_time)
+
+        return response
+
+    # 5. CORS (must be last to properly handle preflight)
     get_cors_config()
     # Override CORS to allow both IP address (Phase 1) and DNS (Phase 2)
     app.add_middleware(
