@@ -157,6 +157,31 @@ cd backend && pytest --cov=src tests/ --cov-report=html
 - **E2E Tests**: Critical user journeys (login, dashboard, create request)
 - **Coverage Target**: >80% for all code
 
+### CI Validation
+
+Before submitting a PR, ensure CI passes:
+
+1. **GitHub Actions**: All workflows must pass (backend CI, frontend CI, terraform CI)
+2. **Cloud Build**: If deploying, ensure build succeeds
+3. **Security Scans**: Snyk, Trivy, Semgrep must pass
+4. **Coverage**: Backend coverage >80%
+
+Run locally to verify:
+
+```bash
+# Pre-commit checks
+pre-commit run --all-files
+
+# Backend tests with coverage
+cd backend && pytest --cov=. --cov-report=term-missing
+
+# Frontend tests
+cd frontend && npm test
+
+# Terraform validation
+cd terraform && terraform fmt -check && terraform validate
+```
+
 ## Pull Request Process
 
 ### 1. Create PR on GitHub
@@ -180,9 +205,11 @@ Brief description of the feature/fix.
 
 ## Checklist
 
-- [ ] Tests pass (npm test + pytest)
-- [ ] Security scan passes (Snyk)
+- [ ] Tests pass locally (npm test + pytest)
+- [ ] CI workflows pass (GitHub Actions + Cloud Build)
+- [ ] Security scans pass (Snyk, Trivy, Semgrep)
 - [ ] Code coverage >80%
+- [ ] Pre-commit hooks pass
 - [ ] Commit is GPG signed
 - [ ] Docs updated (if needed)
 - [ ] No hardcoded secrets
