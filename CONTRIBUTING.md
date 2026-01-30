@@ -247,9 +247,26 @@ Only maintainers can merge PRs. Merge is done by:
 # - Waits for manual approval to prod
 ```
 
-## Security
+## Governance
 
-### Secret Management
+### Branch Protection
+
+Main branch is protected:
+
+- **Required Reviews**: 2+ approvals required
+- **Status Checks**: All CI must pass (tests, lint, security)
+- **CODEOWNERS**: Automatic reviewer assignment
+- **GPG Signing**: All commits must be signed
+
+### Project Management
+
+- **Milestones**: Track program phases (Discovery, Hardening, Integration, Rollout, Compliance)
+- **Project Board**: "Portal Program" board for issue tracking
+- **Labels**: Use consistent labels (epic, testing, security, etc.)
+
+### Code Ownership
+
+CODEOWNERS file assigns reviewers automatically based on file paths.
 
 **❌ NEVER commit**:
 
