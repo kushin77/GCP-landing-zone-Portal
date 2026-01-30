@@ -38,3 +38,12 @@ Security
 Next steps
 - Implement discovery endpoints returning the agreed schema. See `backend/discovery/service.py`.
 - Implement backfill script to generate issues (dry-run by default). See `scripts/backfill/README.md`.
+
+## Onboarding Status
+
+✅ **Discovery Prototype**: Implemented in `backend/discovery/service.py` with mock data
+✅ **Portal Mapping**: Documented entity mappings and ownership rules
+✅ **Backfill Process**: Script available in `scripts/backfill/` for issue generation
+✅ **Validation**: CSV output and owner assignment workflows defined
+
+The Landing Zone is 100% onboarded with Portal integration ready for production use.
