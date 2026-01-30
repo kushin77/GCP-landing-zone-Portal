@@ -1,11 +1,11 @@
 """
 Pydantic models for API request/response schemas.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # Enums
@@ -38,11 +38,15 @@ class ComplianceFramework(str, Enum):
 
 
 # Base Models
+def get_utc_now():
+    return datetime.now(timezone.utc)
+
+
 class BaseResponse(BaseModel):
     """Base response model with common fields."""
 
     success: bool = True
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=get_utc_now)
     message: Optional[str] = None
 
 
@@ -53,9 +57,10 @@ class PaginationParams(BaseModel):
     limit: int = Field(10, ge=1, le=100)
     offset: int = 0
 
-    @validator("offset", always=True)
-    def calculate_offset(cls, v, values):
-        return (values.get("page", 1) - 1) * values.get("limit", 10)
+    @model_validator(mode="after")
+    def calculate_offset(self) -> "PaginationParams":
+        self.offset = (self.page - 1) * self.limit
+        return self
 
 
 class PaginatedResponse(BaseModel):
@@ -67,11 +72,10 @@ class PaginatedResponse(BaseModel):
     limit: int
     pages: int
 
-    @validator("pages", always=True)
-    def calculate_pages(cls, v, values):
-        total = values.get("total", 0)
-        limit = values.get("limit", 10)
-        return (total + limit - 1) // limit if limit > 0 else 0
+    @model_validator(mode="after")
+    def calculate_pages(self) -> "PaginatedResponse":
+        self.pages = (self.total + self.limit - 1) // self.limit if self.limit > 0 else 0
+        return self
 
 
 # Resource Models

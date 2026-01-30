@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from middleware.auth import AuthMiddleware
+from middleware.audit import AuditMiddleware
 from middleware.errors import register_exception_handlers
 from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 
@@ -23,8 +24,9 @@ from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 from middleware.security import SecurityMiddleware, get_cors_config
 
 # Import routers
-from routers import ai, compliance, costs, projects, sync, workflows
+from routers import ai, auth, compliance, costs, discovery, projects, sync, workflows
 from services.cache_service import get_cache_service, shutdown_cache
+from utils.observability import setup_observability
 
 from config import ALLOWED_ORIGINS, API_CONFIG, LOGGING_CONFIG, SERVICE_NAME, SERVICE_VERSION
 
@@ -180,7 +182,13 @@ def create_app() -> FastAPI:
     # Register exception handlers
     register_exception_handlers(app)
 
+    # Setup observability (Prometheus & OpenTelemetry)
+    setup_observability(app, SERVICE_NAME, SERVICE_VERSION)
+
     # Add middleware (order matters - first added = last executed)
+    # 0. Audit Logging (to catch all incoming requests)
+    app.add_middleware(AuditMiddleware)
+
     # 1. Security middleware (adds headers, request tracking)
     app.add_middleware(SecurityMiddleware)
 
@@ -204,12 +212,14 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
+    app.include_router(auth.router)
     app.include_router(projects.router)
     app.include_router(costs.router)
     app.include_router(compliance.router)
     app.include_router(workflows.router)
     app.include_router(ai.router)
     app.include_router(sync.router)
+    app.include_router(discovery.router)
 
     return app
 

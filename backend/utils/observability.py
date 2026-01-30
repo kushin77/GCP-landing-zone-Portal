@@ -1,20 +1,22 @@
 import logging
 import os
+
 from fastapi import FastAPI
-from prometheus_fastapi_instrumentator import Instrumentator
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logger = logging.getLogger(__name__)
+
 
 def setup_observability(app: FastAPI, service_name: str, version: str):
     """
     Configure OpenTelemetry and Prometheus instrumentation.
     """
     env = os.getenv("ENVIRONMENT", "development")
-    
+
     # 1. Prometheus Instrumentation
     try:
         instrumentator = Instrumentator(
@@ -32,15 +34,17 @@ def setup_observability(app: FastAPI, service_name: str, version: str):
 
     # 2. OpenTelemetry Tracing (GCP focused)
     try:
-        resource = Resource.create({
-            "service.name": service_name,
-            "service.version": version,
-            "deployment.environment": env,
-        })
-        
+        resource = Resource.create(
+            {
+                "service.name": service_name,
+                "service.version": version,
+                "deployment.environment": env,
+            }
+        )
+
         provider = TracerProvider(resource=resource)
         trace.set_tracer_provider(provider)
-        
+
         # In actual GCP environment, we would use CloudTraceSpanExporter
         # For local dev or if configured, we could use OTLP or Console exporter
         if os.getenv("ENABLE_TRACING", "false").lower() == "true":
@@ -50,9 +54,9 @@ def setup_observability(app: FastAPI, service_name: str, version: str):
             # exporter = CloudTraceSpanExporter()
             # provider.add_span_processor(BatchSpanProcessor(exporter))
             logger.info("OpenTelemetry Tracing enabled")
-            
+
         FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
         logger.info("OpenTelemetry FastAPI instrumentation initialized")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize OpenTelemetry: {e}")

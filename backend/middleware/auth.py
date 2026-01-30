@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ============================================================================
 
+REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "true").lower() == "true"
+
 
 class AuthConfig:
     """Authentication configuration from environment."""
@@ -553,10 +555,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path in self.SKIP_PATHS or path.endswith(tuple(self.SKIP_PATHS)):
             return await call_next(request)
 
-        # Try to authenticate (but don't block - let endpoint decide)
+        # Try to authenticate
         start_time = time.time()
         user = await auth_service.authenticate(request)
         auth_time = time.time() - start_time
+
+        # If authentication is required and no user found, return 401
+        if REQUIRE_AUTH and not user:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "Authentication required"}
+            )
 
         # Attach to request state for downstream use
         request.state.user = user
