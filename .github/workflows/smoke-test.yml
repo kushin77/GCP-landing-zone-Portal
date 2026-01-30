@@ -1,0 +1,42 @@
+name: Smoke Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build backend service
+      run: docker-compose build backend
+
+    - name: Start backend service
+      run: docker-compose up -d backend
+
+    - name: Wait for backend to be ready
+      run: |
+        for i in {1..30}; do
+          if curl -f http://localhost:8080/health; then
+            echo "Backend is ready"
+            break
+          fi
+          echo "Waiting for backend... ($i/30)"
+          sleep 2
+        done
+
+    - name: Run connectivity test
+      run: |
+        chmod +x scripts/check_connectivity.sh
+        PORTAL_PORT=8080 ./scripts/check_connectivity.sh
+
+    - name: Stop services
+      run: docker-compose down
