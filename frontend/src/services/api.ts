@@ -18,7 +18,20 @@ import axios, {
 // Configuration
 // ============================================================================
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// Resolve API base URL with priority:
+// 1. `VITE_API_URL` (explicit override at build/dev time)
+// 2. Runtime derivation from `window.location.hostname` + `VITE_API_PORT` (or default 8082)
+// 3. Fallback to localhost:8080
+const VITE_API_URL = import.meta.env.VITE_API_URL as string | undefined;
+const VITE_API_PORT = import.meta.env.VITE_API_PORT as string | undefined;
+
+let API_BASE_URL = 'http://localhost:8080';
+if (VITE_API_URL && VITE_API_URL.length > 0) {
+  API_BASE_URL = VITE_API_URL;
+} else if (typeof window !== 'undefined') {
+  const runtimePort = VITE_API_PORT || '8082';
+  API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:${runtimePort}`;
+}
 
 interface RetryConfig {
   maxRetries: number;

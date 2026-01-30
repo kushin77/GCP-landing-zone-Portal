@@ -347,6 +347,14 @@ async def get_dashboard():
 if __name__ == "__main__":
     import uvicorn
 
+    # Read bind host and port from environment for flexible deployments
+    BIND_HOST = os.getenv("BIND_HOST", "0.0.0.0")
+    # Allow PORT (standard) or PORTAL_PORT (legacy) to configure port
+    PORT = int(os.getenv("PORT", os.getenv("PORTAL_PORT", "8082")))
+
     uvicorn.run(
-        app, host="0.0.0.0", port=8082, log_level=LOGGING_CONFIG.get("level", "info").lower()
+        app,
+        host=BIND_HOST,
+        port=PORT,
+        log_level=LOGGING_CONFIG.get("level", "info").lower(),
     )
