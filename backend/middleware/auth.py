@@ -435,7 +435,7 @@ async def get_current_user(
             logger.warning("Auth disabled in development - returning limited viewer user")
             return User(
                 id="anonymous-dev",
-                email="anonymous@localhost",
+                email="anonymous@localhost.dev",
                 name="Anonymous (Dev Mode)",
                 roles=["viewer"],
                 permissions=get_permissions_for_roles(["viewer"]),
