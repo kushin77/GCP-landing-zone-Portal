@@ -6,15 +6,37 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from google.api_core import exceptions
-from google.cloud import (
-    asset_v1,
-    bigquery,
-    monitoring_v3,
-    resourcemanager_v3,
-    secretmanager,
-    storage,
-)
+try:
+    from google.api_core import exceptions
+    from google.cloud import (
+        asset_v1,
+        bigquery,
+        monitoring_v3,
+        resourcemanager_v3,
+        secretmanager,
+        storage,
+    )
+except Exception:
+    # Allow test environments without google-cloud-* packages to import this module.
+    # Tests should patch `GCPClientManager` or specific clients as needed.
+    import types
+    exceptions = types.SimpleNamespace(GoogleAPIError=Exception, NotFound=Exception)
+
+    # Create lightweight dummy modules/classes so code importing attributes
+    # (e.g., resourcemanager_v3.ProjectsClient) does not fail at import time.
+    class _DummyClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __getattr__(self, item):
+            raise RuntimeError("Google Cloud client not available in this environment")
+
+    asset_v1 = types.SimpleNamespace(AssetServiceClient=_DummyClient)
+    bigquery = types.SimpleNamespace(Client=_DummyClient)
+    monitoring_v3 = types.SimpleNamespace(MetricServiceClient=_DummyClient, TimeInterval=object)
+    resourcemanager_v3 = types.SimpleNamespace(ProjectsClient=_DummyClient, ListProjectsRequest=object)
+    secretmanager = types.SimpleNamespace(SecretManagerServiceClient=_DummyClient)
+    storage = types.SimpleNamespace(Client=_DummyClient)
 
 logger = logging.getLogger(__name__)
 

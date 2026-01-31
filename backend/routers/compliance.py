@@ -3,11 +3,18 @@ Compliance API router.
 """
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
+from middleware.auth import get_current_user
 from models.schemas import ComplianceFramework, ComplianceStatus
 from services.compliance_service import compliance_service
 
-router = APIRouter(prefix="/api/v1/compliance", tags=["compliance"])
+router = APIRouter(prefix="/api/v1/compliance", tags=["compliance"], dependencies=[Depends(get_current_user)])
+
+
+@router.get("/")
+async def compliance_root():
+    """Compliance router root (protected)."""
+    return {"message": "compliance root"}
 
 
 @router.get("/status", response_model=ComplianceStatus)
