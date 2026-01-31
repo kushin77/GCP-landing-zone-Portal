@@ -369,6 +369,13 @@ git push origin main
 - **[Runbooks](docs/operations/RUNBOOKS.md)** — Troubleshooting, incident response
 - **[Security Policy](SECURITY.md)** — Compliance, audit, incident handling
 
+### Phase 3 Infrastructure (January 2026)
+- **[Phase 3 Completion Report](PHASE_3_INFRASTRUCTURE_COMPLETION.md)** — Infrastructure improvements & test suite resolution
+- **[Systemd Service Deployment](docs/SYSTEMD_SERVICE_DEPLOYMENT.md)** — Production deployment guide
+- **[Frontend API Integration](docs/FRONTEND_API_INTEGRATION.md)** — Frontend configuration & API connectivity
+- **[OpenTelemetry Status](docs/OPENTELEMETRY_STATUS.md)** — Observability infrastructure status
+- **[PR Documentation](PR_PHASE_3_INFRASTRUCTURE.md)** — Merge-ready PR details
+
 ---
 
 ## 🎯 Roadmap
@@ -418,4 +425,4 @@ This project is inspired by internal infrastructure platforms at Google, Amazon,
 **Repository**: [kushin77/GCP-landing-zone-Portal](https://github.com/kushin77/GCP-landing-zone-Portal)
 **Live Portal**: [https://elevatediq.ai/portal](https://elevatediq.ai/portal)
 **Status**: Active Development
-**Last Updated**: 2026-01-26
+**Last Updated**: 2026-01-31 (Phase 3 Infrastructure Improvements Complete)
