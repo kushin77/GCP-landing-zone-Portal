@@ -55,7 +55,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
-from opentelemetry.instrumentation.fastapi import FastInstrumentor
+# from opentelemetry.instrumentation.fastapi import FastInstrumentor  # TODO: Fix version compatibility
 from prometheus_client import Counter, Histogram, start_http_server
 
 from config import ALLOWED_ORIGINS, API_CONFIG, LOGGING_CONFIG, SERVICE_NAME, SERVICE_VERSION
@@ -249,8 +249,8 @@ def create_app() -> FastAPI:
         root_path=base_path or "",
     )
 
-    # Instrument FastAPI with OpenTelemetry
-    FastInstrumentor.instrument_app(app)
+    # Instrument FastAPI with OpenTelemetry (TODO: Fix version compatibility)
+    # FastInstrumentor.instrument_app(app)
 
     # Register exception handlers
     register_exception_handlers(app)

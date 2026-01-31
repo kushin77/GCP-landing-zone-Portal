@@ -13,12 +13,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: development
+      target: production
     container_name: lz-backend
     ports:
-      - "8080:8080"
+      - "9000:8080"
     environment:
-      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
       - REQUIRE_AUTH=false
       - ALLOW_DEV_BYPASS=false
       - GCP_PROJECT_ID=${GCP_PROJECT_ID:-landing-zone-prod}
@@ -53,13 +53,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: development
+      target: production
     container_name: lz-frontend
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://${HOST_IP:-192.168.168.42}:8080
-      - VITE_ENVIRONMENT=${ENVIRONMENT:-production}
+      - VITE_API_URL=http://localhost:9000
+      - VITE_ENVIRONMENT=${ENVIRONMENT:-development}
     volumes:
       - ./frontend:/app
       - /app/node_modules
