@@ -14,16 +14,18 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: development
-    container_name: lz-portal-backend
+    container_name: lz-backend
     ports:
       - "8080:8080"
     environment:
-      - ENVIRONMENT=development
+      - ENVIRONMENT=${ENVIRONMENT:-production}
       - REQUIRE_AUTH=false
-      - ALLOW_DEV_BYPASS=true
-      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-landing-zone-dev}
+      - ALLOW_DEV_BYPASS=false
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-landing-zone-prod}
       - REDIS_URL=redis://redis:6379/0
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=INFO
+      - BIND_HOST=0.0.0.0
+      - PORT=8080
     volumes:
       - ./backend:/app
       - /app/__pycache__
@@ -31,13 +33,18 @@ services:
       - redis
     networks:
       - portal-network
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================================================
   # Frontend
@@ -47,38 +54,54 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: development
-    container_name: lz-portal-frontend
+    container_name: lz-frontend
     ports:
-      - "3000:3000"
+      - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8080
-      - VITE_ENVIRONMENT=development
+      - VITE_API_URL=http://${HOST_IP:-192.168.168.42}:8080
+      - VITE_ENVIRONMENT=${ENVIRONMENT:-production}
     volumes:
       - ./frontend:/app
       - /app/node_modules
     networks:
       - portal-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================================================
   # Redis Cache
   # ============================================================================
   redis:
     image: redis:7-alpine
-    container_name: lz-portal-redis
+    container_name: lz-redis
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - portal-network
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ============================================================================
   # Nginx Reverse Proxy (Production-like setup)
