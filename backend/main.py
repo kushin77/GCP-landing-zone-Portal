@@ -16,30 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from middleware.auth import AuthMiddleware
-from middleware.errors import register_exception_handlers
-from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
-
-# Import middleware
-from middleware.security import SecurityMiddleware, get_cors_config
-
-"""
-FAANG-Grade Entry Point for Landing Zone Portal Backend.
-
-Features:
-- Enterprise middleware stack (security, rate limiting, error handling)
-- Structured logging with correlation IDs
-- Health checks with actual dependency verification
-- OpenTelemetry integration ready
-"""
-import logging
-import os
-from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from middleware.auth import AuthMiddleware
+from middleware.audit import AuditMiddleware
 from middleware.errors import register_exception_handlers
 from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 
@@ -47,20 +24,9 @@ from middleware.rate_limit import RateLimitMiddleware, SlidingWindowRateLimiter
 from middleware.security import SecurityMiddleware, get_cors_config
 
 # Import routers
-from routers import ai, compliance, costs, discovery, projects, sync, workflows, admin
+from routers import ai, analysis, auth, compliance, costs, discovery, projects, sync, workflows
 from services.cache_service import get_cache_service, shutdown_cache
-
-# Observability
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-# Cloud Trace exporter may not be available in all environments (tests/local)
-try:
-    from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
-except Exception:
-    CloudTraceSpanExporter = None
-# from opentelemetry.instrumentation.fastapi import FastInstrumentor  # TODO: Fix version compatibility
-from prometheus_client import Counter, Histogram, start_http_server
+from utils.observability import setup_observability
 
 from config import ALLOWED_ORIGINS, API_CONFIG, LOGGING_CONFIG, SERVICE_NAME, SERVICE_VERSION
 
@@ -154,37 +120,26 @@ async def lifespan(app: FastAPI):
 
     # Startup: Initialize connections, load configurations
     try:
-        # Skip initializing external dependencies when running tests or when explicitly disabled
-        env = os.getenv("ENVIRONMENT", "development")
-        skip_external = os.getenv("SKIP_EXTERNAL_DEPENDENCIES", "false").lower() in (
-            "1",
-            "true",
-            "yes",
-        )
+        # Initialize cache connection (support multiple cache implementations)
+        cache = await get_cache_service()
+        # Some cache implementations use `_connected`, others use `_initialized`.
+        connected = getattr(cache, "_connected", None)
+        if connected is None:
+            connected = getattr(cache, "_initialized", False)
 
-        if env == "test" or skip_external:
-            logger.info("Test environment or SKIP_EXTERNAL_DEPENDENCIES set; skipping external dependency initialization")
+        if connected:
+            logger.info("Redis cache connected")
         else:
-            # Initialize cache connection (support multiple cache implementations)
-            cache = await get_cache_service()
-            # Some cache implementations use `_connected`, others use `_initialized`.
-            connected = getattr(cache, "_connected", None)
-            if connected is None:
-                connected = getattr(cache, "_initialized", False)
+            logger.warning("Redis cache unavailable - running without caching")
 
-            if connected:
-                logger.info("Redis cache connected")
-            else:
-                logger.warning("Redis cache unavailable - running without caching")
-
-            # Verify GCP connectivity on startup
-            health_result = await health_checker.check_all()
-            if not health_result["healthy"]:
-                logger.warning(
-                    "Some health checks failed on startup - service may have degraded functionality"
-                )
-            else:
-                logger.info("All health checks passed")
+        # Verify GCP connectivity on startup
+        health_result = await health_checker.check_all()
+        if not health_result["healthy"]:
+            logger.warning(
+                "Some health checks failed on startup - service may have degraded functionality"
+            )
+        else:
+            logger.info("All health checks passed")
 
         logger.info("Application started successfully")
     except Exception as e:
@@ -200,58 +155,12 @@ async def lifespan(app: FastAPI):
 
 
 # ============================================================================
-# Observability Setup
-# ============================================================================
-
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    "http_requests_total",
-    "Total number of HTTP requests",
-    ["method", "endpoint", "status_code"]
-)
-REQUEST_LATENCY = Histogram(
-    "http_request_duration_seconds",
-    "HTTP request duration in seconds",
-    ["method", "endpoint"]
-)
-
-# OpenTelemetry setup
-def setup_observability():
-    """Initialize OpenTelemetry tracing and Prometheus metrics."""
-    # Set up tracing
-    trace.set_tracer_provider(TracerProvider())
-    tracer = trace.get_tracer(__name__)
-
-    # Export to Cloud Trace if in production and exporter is available
-    if os.getenv("ENVIRONMENT") == "production":
-        if CloudTraceSpanExporter is not None:
-            cloud_trace_exporter = CloudTraceSpanExporter()
-            span_processor = BatchSpanProcessor(cloud_trace_exporter)
-            trace.get_tracer_provider().add_span_processor(span_processor)
-            logger.info("OpenTelemetry tracing enabled with Cloud Trace")
-        else:
-            logger.warning("Cloud Trace exporter not available; tracing disabled for production")
-    else:
-        logger.info("OpenTelemetry tracing enabled (development mode)")
-
-    # Start Prometheus metrics server (skip in test environments)
-    if os.getenv("ENVIRONMENT") == "test":
-        logger.info("Skipping Prometheus metrics server in test environment")
-    else:
-        start_http_server(8001)  # Different port from app
-        logger.info("Prometheus metrics server started on port 8001")
-
-
-# ============================================================================
 # Application Factory
 # ============================================================================
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-
-    # Initialize observability
-    setup_observability()
 
     base_path = os.getenv("BASE_PATH", "")
     # Normalize base path (e.g., "/lz" or "")
@@ -270,13 +179,16 @@ def create_app() -> FastAPI:
         root_path=base_path or "",
     )
 
-    # Instrument FastAPI with OpenTelemetry (TODO: Fix version compatibility)
-    # FastInstrumentor.instrument_app(app)
-
     # Register exception handlers
     register_exception_handlers(app)
 
+    # Setup observability (Prometheus & OpenTelemetry)
+    setup_observability(app, SERVICE_NAME, SERVICE_VERSION)
+
     # Add middleware (order matters - first added = last executed)
+    # 0. Audit Logging (to catch all incoming requests)
+    app.add_middleware(AuditMiddleware)
+
     # 1. Security middleware (adds headers, request tracking)
     app.add_middleware(SecurityMiddleware)
 
@@ -287,26 +199,20 @@ def create_app() -> FastAPI:
     # 3. Authentication middleware (adds user to request state)
     app.add_middleware(AuthMiddleware)
 
-    # 4. Metrics middleware
-    @app.middleware("http")
-    async def metrics_middleware(request, call_next):
-        import time
-        start_time = time.time()
-        response = await call_next(request)
-        process_time = time.time() - start_time
+    # 4. CORS (must be last to properly handle preflight)
+    get_cors_config()
+    # Override CORS to allow both IP address (Phase 1) and DNS (Phase 2)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["X-Request-ID", "X-Process-Time"],
+    )
 
-        REQUEST_COUNT.labels(
-            method=request.method,
-            endpoint=request.url.path,
-            status_code=response.status_code,
-        ).inc()
-
-        REQUEST_LATENCY.labels(method=request.method, endpoint=request.url.path).observe(
-            process_time
-        )
-
-        return response
     # Include routers
+    app.include_router(auth.router)
     app.include_router(projects.router)
     app.include_router(costs.router)
     app.include_router(compliance.router)
@@ -314,7 +220,7 @@ def create_app() -> FastAPI:
     app.include_router(ai.router)
     app.include_router(sync.router)
     app.include_router(discovery.router)
-    app.include_router(admin.router)
+    app.include_router(analysis.router)
 
     return app
 
@@ -438,16 +344,17 @@ async def get_dashboard():
         }
 
 
-# Simple auth/login endpoint used in rate-limit tests
-@app.get("/auth/login")
-async def auth_login(user: str = None):
-    """Test helper endpoint to simulate login flow (rate-limited in tests)."""
-    return JSONResponse(status_code=200, content={"status": "ok", "user": user})
-
-
 if __name__ == "__main__":
     import uvicorn
 
+    # Read bind host and port from environment for flexible deployments
+    BIND_HOST = os.getenv("BIND_HOST", "0.0.0.0")
+    # Allow PORT (standard) or PORTAL_PORT (legacy) to configure port
+    PORT = int(os.getenv("PORT", os.getenv("PORTAL_PORT", "8082")))
+
     uvicorn.run(
-        app, host="0.0.0.0", port=8080, log_level=LOGGING_CONFIG.get("level", "info").lower()
+        app,
+        host=BIND_HOST,
+        port=PORT,
+        log_level=LOGGING_CONFIG.get("level", "info").lower(),
     )

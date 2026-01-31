@@ -23,15 +23,13 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["REQUIRE_AUTH"] = "false"
 os.environ["ALLOW_DEV_BYPASS"] = "true"
 
-# Ensure backend package modules are importable when pytest runs from workspace root
-import sys
-import os as _os
-_backend_dir = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), ".."))
-if _backend_dir not in sys.path:
-    sys.path.insert(0, _backend_dir)
-_workspace_root = _os.path.abspath(_os.path.join(_backend_dir, ".."))
-if _workspace_root not in sys.path:
-    sys.path.insert(0, _workspace_root)
+# Mock GCP before any imports that might trigger it
+mock_gcp_auth = patch("google.auth.default", return_value=(MagicMock(), "test-project"))
+mock_gcp_auth.start()
+
+# Mock Secret Manager to prevent hangs during config load
+mock_gsm = patch("google.cloud.secretmanager_v1.SecretManagerServiceClient")
+mock_gsm.start()
 
 from main import app  # noqa: E402
 from middleware.auth import User, get_permissions_for_roles  # noqa: E402
@@ -145,23 +143,20 @@ def viewer_headers() -> Dict[str, str]:
 # ============================================================================
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_gcp_clients():
-    """Mock all GCP clients."""
-    with patch("services.gcp_client.GCPClientManager") as mock:
-        manager = MagicMock()
-
+    """Mock all GCP clients automatically for all tests."""
+    with patch("services.gcp_client.gcp_clients") as mock:
         # Mock Projects client
-        manager.projects = MagicMock()
-        manager.projects.list_projects.return_value = iter(
-            [
+        mock.projects = MagicMock()
+        mock.projects.list_projects.return_value = [
                 MagicMock(
                     name="projects/123456789",
                     project_id="test-project-1",
                     display_name="Test Project 1",
                     state=MagicMock(name="ACTIVE"),
                     parent="folders/12345",
-                    create_time=datetime.utcnow(),
+                    create_time=datetime.now(),
                     labels={"env": "test"},
                 ),
                 MagicMock(
@@ -170,23 +165,25 @@ def mock_gcp_clients():
                     display_name="Test Project 2",
                     state=MagicMock(name="ACTIVE"),
                     parent="folders/12345",
-                    create_time=datetime.utcnow(),
+                    create_time=datetime.now(),
                     labels={"env": "prod"},
                 ),
             ]
-        )
+
+        # Mock methods on gcp_clients itself if it has any that are called directly
+        # Typically services import ProjectService(gcp_clients)
+        # So we need mock.projects to be the mock client.
 
         # Mock BigQuery client
-        manager.bigquery = MagicMock()
+        mock.bigquery = MagicMock()
 
         # Mock Asset client
-        manager.assets = MagicMock()
+        mock.assets = MagicMock()
 
         # Mock Storage client
-        manager.storage = MagicMock()
+        mock.storage = MagicMock()
 
-        mock.return_value = manager
-        yield manager
+        yield mock
 
 
 @pytest.fixture
@@ -297,31 +294,3 @@ class AsyncContextManager:
 
     async def __aexit__(self, *args):
         pass
-
-
-# Minimal 'mocker' fixture for environments without pytest-mock plugin
-@pytest.fixture
-def mocker():
-    """Provide a simple mocker with a .patch() helper that is cleaned up after each test."""
-    from unittest.mock import patch
-
-    patches = []
-
-    class Mocker:
-        def patch(self, target, *args, **kwargs):
-            # Support positional 'new' arg and keyword args like unittest.mock.patch
-            if args:
-                kwargs["new"] = args[0]
-            p = patch(target, **kwargs)
-            started = p.start()
-            patches.append(p)
-            return started
-
-    m = Mocker()
-    yield m
-
-    for p in patches:
-        try:
-            p.stop()
-        except Exception:
-            pass

@@ -64,8 +64,7 @@ class CacheService:
 
     def __init__(self, redis_client: Optional[Redis] = None):
         self.redis = redis_client
-        # If a redis client is provided (e.g., a test mock), consider service initialized
-        self._initialized = True if redis_client is not None else False
+        self._initialized = False
 
     async def initialize(self, redis_url: str = "redis://localhost:6379/0"):
         """Initialize Redis connection"""
@@ -112,97 +111,74 @@ class CacheService:
 
     async def get(self, key: str) -> Optional[Any]:
         """Get value from cache (with metrics)"""
-        start = time.time()
-        try:
-            with tracer.start_as_current_span("cache.get") as span:
-                if hasattr(span, "set_attribute"):
-                    span.set_attribute("cache.key", key)
-                # Continue with cache logic inside context
-                pass
-        except Exception:
-            # If tracer is not available or behaves unexpectedly, continue without span
-            pass
+        with tracer.start_as_current_span("cache.get") as span:
+            span.set_attribute("cache.key", key)
 
-        try:
-            if not self.redis or not self._initialized:
-                cache_misses.add(1, {"key": key, "reason": "not_initialized"})
-                return None
+            start = time.time()
 
-            value = await self.redis.get(key)
-
-            if value:
-                cache_hits.add(1, {"key": key})
-                duration = (time.time() - start) * 1000
-                cache_operations.record(duration, {"operation": "get", "hit": True})
-                try:
-                    with tracer.start_as_current_span("cache.get.hit") as span:
-                        if hasattr(span, "set_attribute"):
-                            span.set_attribute("cache.hit", True)
-                except Exception:
-                    pass
-            else:
-                cache_misses.add(1, {"key": key, "reason": "key_not_found"})
-                duration = (time.time() - start) * 1000
-                cache_operations.record(duration, {"operation": "get", "hit": False})
-                try:
-                    with tracer.start_as_current_span("cache.get.miss") as span:
-                        if hasattr(span, "set_attribute"):
-                            span.set_attribute("cache.hit", False)
-                except Exception:
-                    pass
-
-            # Parse JSON if applicable
-            if value:
-                try:
-                    return json.loads(value)
-                except json.JSONDecodeError:
-                    return value
-
-            return None
-        except RedisError as e:
-            logger.warning(f"Cache get error for {key}: {e}")
-            cache_misses.add(1, {"key": key, "reason": "redis_error"})
-            duration = (time.time() - start) * 1000
-            cache_operations.record(duration, {"operation": "get", "error": True})
             try:
-                with tracer.start_as_current_span("cache.get.error") as span:
-                    if hasattr(span, "record_exception"):
-                        span.record_exception(e)
-            except Exception:
-                pass
-            return None
+                if not self.redis or not self._initialized:
+                    cache_misses.add(1, {"key": key, "reason": "not_initialized"})
+                    return None
+
+                value = await self.redis.get(key)
+
+                if value:
+                    cache_hits.add(1, {"key": key})
+                    duration = (time.time() - start) * 1000
+                    cache_operations.record(duration, {"operation": "get", "hit": True})
+                    span.set_attribute("cache.hit", True)
+                else:
+                    cache_misses.add(1, {"key": key, "reason": "key_not_found"})
+                    duration = (time.time() - start) * 1000
+                    cache_operations.record(duration, {"operation": "get", "hit": False})
+                    span.set_attribute("cache.hit", False)
+
+                # Parse JSON if applicable
+                if value:
+                    try:
+                        return json.loads(value)
+                    except json.JSONDecodeError:
+                        return value
+
+                return None
+            except RedisError as e:
+                logger.warning(f"Cache get error for {key}: {e}")
+                cache_misses.add(1, {"key": key, "reason": "redis_error"})
+                duration = (time.time() - start) * 1000
+                cache_operations.record(duration, {"operation": "get", "error": True})
+                span.record_exception(e)
+                return None
 
     async def set(self, key: str, value: Any, ttl: int = CacheConfig.TTL_DASHBOARD):
         """Set value in cache (with metrics)"""
-        start = time.time()
-        try:
-            with tracer.start_as_current_span("cache.set") as span:
-                if hasattr(span, "set_attribute"):
-                    span.set_attribute("cache.key", key)
-                    span.set_attribute("cache.ttl_seconds", ttl)
-        except Exception:
-            pass
+        with tracer.start_as_current_span("cache.set") as span:
+            span.set_attribute("cache.key", key)
+            span.set_attribute("cache.ttl_seconds", ttl)
 
-        try:
-            if not self.redis or not self._initialized:
+            start = time.time()
+
+            try:
+                if not self.redis or not self._initialized:
+                    return False
+
+                # Serialize to JSON
+                if not isinstance(value, str):
+                    value = json.dumps(value)
+
+                await self.redis.setex(key, ttl, value)
+
+                duration = (time.time() - start) * 1000
+                cache_operations.record(duration, {"operation": "set", "success": True})
+                span.set_attribute("cache.set_success", True)
+
+                return True
+            except RedisError as e:
+                logger.warning(f"Cache set error for {key}: {e}")
+                duration = (time.time() - start) * 1000
+                cache_operations.record(duration, {"operation": "set", "error": True})
+                span.record_exception(e)
                 return False
-
-            # Serialize to JSON
-            if not isinstance(value, str):
-                value = json.dumps(value)
-
-            await self.redis.setex(key, ttl, value)
-
-            duration = (time.time() - start) * 1000
-            cache_operations.record(duration, {"operation": "set", "success": True})
-            span.set_attribute("cache.set_success", True)
-
-            return True
-        except RedisError as e:
-            logger.warning(f"Cache set error for {key}: {e}")
-            duration = (time.time() - start) * 1000
-            cache_operations.record(duration, {"operation": "set", "error": True})
-            span.record_exception(e)
             return False
 
     async def delete(self, key: str) -> bool:
@@ -245,24 +221,24 @@ class CacheService:
         """Get multiple values from cache"""
         try:
             if not self.redis or not self._initialized:
-                return [None for _ in keys]
+                return {key: None for key in keys}
 
             values = await self.redis.mget(keys)
 
-            result_list: List[Optional[Any]] = []
-            for value in values:
+            result = {}
+            for key, value in zip(keys, values):
                 if value:
                     try:
-                        result_list.append(json.loads(value))
+                        result[key] = json.loads(value)
                     except json.JSONDecodeError:
-                        result_list.append(value)
+                        result[key] = value
                 else:
-                    result_list.append(None)
+                    result[key] = None
 
-            return result_list
+            return result
         except RedisError as e:
             logger.warning(f"Cache mget error: {e}")
-            return [None for _ in keys]
+            return {key: None for key in keys}
 
     async def mset(self, data: Dict[str, Any], ttl: int = CacheConfig.TTL_DASHBOARD) -> bool:
         """Set multiple values in cache"""
@@ -278,31 +254,14 @@ class CacheService:
                 else:
                     serialized[key] = json.dumps(value)
 
-            # Try to use pipeline if available and behaves like an async context manager
-            try:
-                pipeline_obj = await self.redis.pipeline(transaction=False)
-                # Some mocks return an async context manager; attempt to use it
-                if hasattr(pipeline_obj, "__aenter__"):
-                    async with pipeline_obj as pipe:
-                        for key, value in serialized.items():
-                            pipe.setex(key, ttl, value)
+            # Use pipeline for atomic operation
+            async with self.redis.pipeline(transaction=False) as pipe:
+                for key, value in serialized.items():
+                    pipe.setex(key, ttl, value)
 
-                        await pipe.execute()
-                else:
-                    # Fallback: iterate and call setex directly
-                    for key, value in serialized.items():
-                        await self.redis.setex(key, ttl, value)
+                await pipe.execute()
 
-                return True
-            except Exception:
-                # Last-resort fallback: call setex for each key
-                try:
-                    for key, value in serialized.items():
-                        await self.redis.setex(key, ttl, value)
-                    return True
-                except Exception as e:
-                    logger.warning(f"Cache mset fallback error: {e}")
-                    return False
+            return True
         except RedisError as e:
             logger.warning(f"Cache mset error: {e}")
             return False

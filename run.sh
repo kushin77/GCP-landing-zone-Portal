@@ -6,15 +6,59 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Function to detect host IP address
+detect_host_ip() {
+    # Try multiple methods to get the host IP
+    if command -v hostname &> /dev/null; then
+        IP=$(hostname -I | awk '{print $1}')
+        if [[ -n "$IP" && "$IP" != "127.0.0.1" ]]; then
+            echo "$IP"
+            return 0
+        fi
+    fi
+
+    # Fallback to ip route
+    if command -v ip &> /dev/null; then
+        IP=$(ip route get 8.8.8.8 | awk '{print $7; exit}')
+        if [[ -n "$IP" && "$IP" != "127.0.0.1" ]]; then
+            echo "$IP"
+            return 0
+        fi
+    fi
+
+    # Last resort - use the configured default
+    echo "192.168.168.42"
+}
+
+# Export environment variables
+export HOST_IP=$(detect_host_ip)
+export VITE_API_URL="http://${HOST_IP}:8082"
+export PORTAL_IP="${HOST_IP}"
+
+echo "🌐 Detected host IP: ${HOST_IP}"
+echo "🔗 API URL: ${VITE_API_URL}"
+
 case "${1:-help}" in
   dev)
     echo "🚀 Starting local development environment..."
-    if command -v docker-compose &> /dev/null; then
-      docker-compose -f tools/docker-compose.dev.yml up
-    else
-      echo "❌ Docker Compose not found. Install Docker Desktop or Docker Compose."
-      exit 1
-    fi
+    # Start backend in background
+    echo "  → Starting backend on port 8082..."
+    cd "${SCRIPT_DIR}/backend" && source ../venv/bin/activate && python main.py &
+    BACKEND_PID=$!
+
+    # Start frontend in background
+    echo "  → Starting frontend on port 5173..."
+    cd "${SCRIPT_DIR}/frontend" && VITE_API_URL="${VITE_API_URL}" npm run dev &
+    FRONTEND_PID=$!
+
+    echo "✅ Services started!"
+    echo "  📱 Frontend: http://${HOST_IP}:5173"
+    echo "  🔧 Backend: http://${HOST_IP}:8082"
+    echo "  🛑 Press Ctrl+C to stop all services"
+
+    # Wait for services and handle shutdown
+    trap "echo '🛑 Stopping services...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM
+    wait
     ;;
 
   test)

@@ -42,12 +42,49 @@ A **world-class, production-ready portal** that serves as the future operating s
 - Label-based organization
 - Cost attribution per project
 
-### 6. **Modern, Beautiful UI**
-- TailwindCSS + React 18
-- Dark mode support
-- Responsive design (mobile, tablet, desktop)
-- Real-time updates
-- Professional data visualizations (Recharts)
+### 7. **RCA-Powered Issue Analysis**
+- Intelligent root cause analysis for infrastructure issues
+- AI-driven remediation recommendations
+- Automated issue correlation and pattern detection
+- Confidence scoring and severity assessment
+- Integration with git-rca-workspace analysis services
+- Batch analysis capabilities for multiple issues
+
+---
+
+## Accessing the portal from other machines (LAN)
+
+If you want to reach the portal from other machines on the same network (for example `http://192.168.168.42:5173`), follow these steps:
+
+- Ensure the backend binds to a host-reachable address (default is `0.0.0.0`). The backend supports `BIND_HOST` and `PORT` environment variables.
+- Frontend will attempt to use `VITE_API_URL` when provided. If not set, the frontend will derive the API URL at runtime from `window.location.hostname` with a default API port of `8082`. You can override the port with `VITE_API_PORT`.
+- Open the following ports in your firewall for LAN access:
+  - TCP 5173 (frontend dev server)
+  - TCP 8082 (backend API)
+
+Quick smoke test (from another machine):
+
+```bash
+# Replace with your host IP
+PORTAL_HOST=192.168.168.42 PORTAL_PORT=8082 \
+  curl -fsS http://${PORTAL_HOST}:${PORTAL_PORT}/health || echo "unreachable"
+```
+
+Local connectivity check helper (run on host):
+
+```bash
+./scripts/check_connectivity.sh
+# or with explicit host/port
+PORTAL_HOST=192.168.168.42 PORTAL_PORT=8082 ./scripts/check_connectivity.sh
+```
+
+If you still see "connection refused":
+
+- Verify the backend is running (`ps aux | grep python` or check `run.sh` output).
+- Verify no firewall or security group is blocking the port.
+- If using Docker and you need host-network mode for development, set `network_mode: host` in `docker-compose.yml` for development only (not recommended for production).
+
+If you'd like, I can submit a PR that implements the remaining checklist items from issue #165 (CI smoke test, docker-compose examples, and documentation updates).
 
 ## 🏗️ Architecture
 

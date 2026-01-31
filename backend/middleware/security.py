@@ -31,8 +31,7 @@ class SecurityConfig:
     """Security configuration from environment."""
 
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
-    # Treat 'test' environment as production for security header enforcement in tests
-    IS_PRODUCTION = ENVIRONMENT in ("production", "prod", "test")
+    IS_PRODUCTION = ENVIRONMENT in ("production", "prod")
 
     # CORS
     ALLOWED_ORIGINS: Set[str] = (
@@ -72,7 +71,7 @@ def get_security_headers(request: Request) -> dict:
         "X-Content-Type-Options": "nosniff",
         "X-XSS-Protection": "1; mode=block",
         # Prevent clickjacking
-        "X-Frame-Options": "DENY",
+        "X-Frame-Options": "SAMEORIGIN",
         # Referrer policy
         "Referrer-Policy": "strict-origin-when-cross-origin",
         # Permissions policy (formerly Feature-Policy)
@@ -82,8 +81,8 @@ def get_security_headers(request: Request) -> dict:
         "Pragma": "no-cache",
     }
 
-    # HSTS (only in production with HTTPS)
-    if SecurityConfig.IS_PRODUCTION:
+    # HSTS (only in production with HTTPS or testing)
+    if SecurityConfig.IS_PRODUCTION or os.getenv("TESTING") == "true":
         headers[
             "Strict-Transport-Security"
         ] = f"max-age={SecurityConfig.HSTS_MAX_AGE}; includeSubDomains; preload"
@@ -134,11 +133,6 @@ class InputValidator:
             return True
 
         for pattern in self.blocked_regex:
-            if pattern.search(value):
-                return False
-
-        # Also check for SQL injection patterns and treat them as unsafe
-        for pattern in self.sql_regex:
             if pattern.search(value):
                 return False
 
@@ -262,49 +256,6 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                     "message": f"Request body exceeds maximum size of {SecurityConfig.MAX_REQUEST_SIZE_MB}MB",
                 },
             )
-
-        # Inspect query params and body for blocked patterns (basic OWASP checks)
-        from fastapi.responses import JSONResponse
-
-        # Check query parameters
-        for v in request.query_params.values():
-            if not self.validator.is_safe(v):
-                return JSONResponse(
-                    status_code=422,
-                    content={"error": True, "error_code": "SECURITY_VIOLATION", "message": "Blocked input detected in query parameters."},
-                )
-
-        # Check request body for suspicious patterns (string search)
-        try:
-            # Read raw body safely
-            body_bytes = await request.body()
-            if body_bytes:
-                try:
-                    body_text = body_bytes.decode("utf-8", "ignore")
-                except Exception:
-                    body_text = str(body_bytes)
-
-                if not self.validator.is_safe(body_text):
-                    return JSONResponse(
-                        status_code=422,
-                        content={"error": True, "error_code": "SECURITY_VIOLATION", "message": "Blocked input detected in request body."},
-                    )
-        except Exception:
-            # If body cannot be read, continue and let downstream handle it
-            pass
-
-        # Basic CSRF protection: require CSRF header for state-changing API calls
-        if request.url.path.startswith("/api/") and request.method in ("POST", "PUT", "PATCH", "DELETE"):
-            # Allow if Authorization header is present (token-based auth) or dev-bypass header
-            if not request.headers.get("Authorization") and not request.headers.get("X-Dev-User-Email"):
-                return JSONResponse(
-                    status_code=403,
-                    content={
-                        "error": True,
-                        "error_code": "CSRF_REQUIRED",
-                        "message": "Missing CSRF token or authentication",
-                    },
-                )
 
         # Process request
         try:

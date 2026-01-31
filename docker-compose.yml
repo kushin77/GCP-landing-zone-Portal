@@ -13,19 +13,17 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: production
-    container_name: lz-backend
+      target: development
+    container_name: lz-portal-backend
     ports:
-      - "9000:8080"
+      - "8080:8080"
     environment:
-      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - ENVIRONMENT=development
       - REQUIRE_AUTH=false
-      - ALLOW_DEV_BYPASS=false
-      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-landing-zone-prod}
+      - ALLOW_DEV_BYPASS=true
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID:-landing-zone-dev}
       - REDIS_URL=redis://redis:6379/0
-      - LOG_LEVEL=INFO
-      - BIND_HOST=0.0.0.0
-      - PORT=8080
+      - LOG_LEVEL=DEBUG
     volumes:
       - ./backend:/app
       - /app/__pycache__
@@ -33,18 +31,13 @@ services:
       - redis
     networks:
       - portal-network
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      start_period: 10s
 
   # ============================================================================
   # Frontend
@@ -53,55 +46,39 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: production
-    container_name: lz-frontend
+      target: development
+    container_name: lz-portal-frontend
     ports:
-      - "5173:5173"
+      - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:9000
-      - VITE_ENVIRONMENT=${ENVIRONMENT:-development}
+      - VITE_API_URL=http://localhost:8080
+      - VITE_ENVIRONMENT=development
     volumes:
       - ./frontend:/app
       - /app/node_modules
     networks:
       - portal-network
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    restart: unless-stopped
 
   # ============================================================================
   # Redis Cache
   # ============================================================================
   redis:
     image: redis:7-alpine
-    container_name: lz-redis
+    container_name: lz-portal-redis
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - portal-network
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   # ============================================================================
   # Nginx Reverse Proxy (Production-like setup)
@@ -174,3 +151,32 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+
+# ============================================================================
+# Development Profile Configuration
+# ============================================================================
+
+# To enable host networking for development (allows access from other machines):
+# 1. Uncomment the following and add 'profiles: ["dev"]' to backend and frontend services
+# 2. Run with: docker-compose --profile dev up
+# 3. Access via host IP instead of localhost
+#
+# WARNING: Host networking bypasses Docker's network isolation
+# - Services bind directly to host ports
+# - No port mapping needed
+# - Requires careful port management to avoid conflicts
+# - Only suitable for development environments
+#
+# Example configuration:
+# services:
+#   backend:
+#     profiles: ["dev"]
+#     network_mode: host
+#     environment:
+#       - BIND_HOST=0.0.0.0
+#       - PORT=8080
+#   frontend:
+#     profiles: ["dev"]
+#     network_mode: host
+#     environment:
+#       - VITE_API_URL=http://<host-ip>:8080
