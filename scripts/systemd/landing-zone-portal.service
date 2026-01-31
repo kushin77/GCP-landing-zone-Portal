@@ -1,0 +1,104 @@
+[Unit]
+Description=GCP Landing Zone Portal - Backend Service
+Documentation=file:///home/landing-zone-portal/docs/DEPLOYMENT.md
+After=network.target redis.service
+Wants=redis.service
+
+[Service]
+Type=notify
+User=landing-zone
+Group=landing-zone
+WorkingDirectory=/home/landing-zone-portal/backend
+
+# Environment variables for production
+Environment="ENVIRONMENT=production"
+Environment="PYTHONUNBUFFERED=1"
+Environment="SERVICE_NAME=landing-zone-portal-backend"
+Environment="SERVICE_VERSION=1.0.0"
+
+# GCP Configuration
+Environment="GCP_PROJECT_ID=your-gcp-project-id"
+Environment="REQUIRE_AUTH=true"
+Environment="ALLOW_DEV_BYPASS=false"
+
+# Server Configuration
+Environment="BIND_HOST=127.0.0.1"
+Environment="BIND_PORT=8000"
+Environment="BASE_PATH=/api"
+
+# Redis Configuration
+Environment="REDIS_HOST=127.0.0.1"
+Environment="REDIS_PORT=6379"
+Environment="REDIS_DB=0"
+
+# Cache Configuration
+Environment="CACHE_TTL=3600"
+Environment="RATE_LIMIT_ENABLED=true"
+Environment="RATE_LIMIT_REQUESTS=100"
+Environment="RATE_LIMIT_WINDOW=60"
+
+# Observability
+Environment="ENABLE_METRICS=true"
+Environment="METRICS_PORT=8001"
+
+# Security
+Environment="SECURE_HEADERS_ENABLED=true"
+Environment="CORS_ENABLED=true"
+Environment="CORS_ORIGINS=https://landing-zone-portal.example.com"
+
+# Logging
+Environment="LOG_LEVEL=INFO"
+Environment="LOG_FORMAT=json"
+
+# ExecStart - Run the FastAPI application with Uvicorn
+ExecStart=/usr/bin/python3 -m uvicorn \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 4 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --log-level info \
+    --access-log \
+    --proxy-headers \
+    --forwarded-allow-ips 127.0.0.1 \
+    main:app
+
+# Health check - verify service is responsive
+ExecStartPost=/usr/bin/bash -c '\
+    for i in {1..30}; do \
+        if curl -sf http://127.0.0.1:8000/health > /dev/null; then \
+            exit 0; \
+        fi; \
+        sleep 1; \
+    done; \
+    exit 1'
+
+# Graceful shutdown
+ExecStop=/bin/kill -TERM $MAINPID
+TimeoutStopSec=30
+KillMode=mixed
+
+# Resource limits
+MemoryLimit=2G
+CPUQuota=200%
+TasksMax=1000
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/home/landing-zone-portal/backend/logs
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Standard output/error
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lz-portal-backend
+
+[Install]
+WantedBy=multi-user.target
