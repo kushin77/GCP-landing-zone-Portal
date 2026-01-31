@@ -9,32 +9,63 @@ SERVICE_VERSION = "1.0.0"
 # ============================================================================
 
 # Phase 1: IP Address (Current Development/Staging)
-IP_ADDRESS = os.getenv("PORTAL_IP", "192.168.168.42")
-IP_PORT = int(os.getenv("PORTAL_PORT", "8080"))
-PORTAL_IP_URL = f"http://{IP_ADDRESS}:{IP_PORT}"
+# Use LOCAL_IP environment variable instead of PORTAL_IP for clarity
+LOCAL_IP = os.getenv("LOCAL_IP", "192.168.168.42")
+PORTAL_PORT = int(os.getenv("PORTAL_PORT", "8080"))
+FRONTEND_PORT = int(os.getenv("FRONTEND_PORT", "5173"))
+PORTAL_IP_URL = f"http://{LOCAL_IP}:{PORTAL_PORT}"
+FRONTEND_IP_URL = f"http://{LOCAL_IP}:{FRONTEND_PORT}"
 
-# Phase 2: DNS (Production)
-PORTAL_DNS = "https://elevatediq.ai/portal"
-PORTAL_API_DNS = "https://elevatediq.ai/lz"
+# Phase 2: DNS Configuration (Environment-specific)
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# Environment-specific DNS URLs
+ENV_URLS = {
+    "development": {
+        "domain": os.getenv("DEV_DOMAIN", "dev.elevatedoq.ai"),
+        "api_url": os.getenv("DEV_API_URL", "https://dev.elevatedoq.ai/lz"),
+        "portal_url": os.getenv("DEV_PORTAL_URL", "https://dev.elevatedoq.ai/portal"),
+    },
+    "staging": {
+        "domain": os.getenv("QA_DOMAIN", "qa.elevatedoq.ai"),
+        "api_url": os.getenv("QA_API_URL", "https://qa.elevatedoq.ai/lz"),
+        "portal_url": os.getenv("QA_PORTAL_URL", "https://qa.elevatedoq.ai/portal"),
+    },
+    "production": {
+        "domain": os.getenv("PROD_DOMAIN", "elevatedoq.ai"),
+        "api_url": os.getenv("PROD_API_URL", "https://elevatedoq.ai/lz"),
+        "portal_url": os.getenv("PROD_PORTAL_URL", "https://elevatedoq.ai/portal"),
+    },
+}
 
 # Determine which URL to use
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 if ENVIRONMENT == "production":
-    PORTAL_URL = PORTAL_DNS
-    API_URL = PORTAL_API_DNS
-else:
+    PORTAL_URL = ENV_URLS["production"]["portal_url"]
+    API_URL = ENV_URLS["production"]["api_url"]
+elif ENVIRONMENT == "staging":
+    PORTAL_URL = ENV_URLS["staging"]["portal_url"]
+    API_URL = ENV_URLS["staging"]["api_url"]
+else:  # development
+    # Use IP address for local development, NOT localhost
     PORTAL_URL = PORTAL_IP_URL
     API_URL = PORTAL_IP_URL
 
-# CORS Configuration - Allow both Phase 1 (IP) and Phase 2 (DNS)
+# CORS Configuration - No localhost/127.0.0.1, use IP address and environment DNS URLs
 ALLOWED_ORIGINS = [
+    # Phase 1: Local IP Address (development only)
     PORTAL_IP_URL,
-    f"http://{IP_ADDRESS}:5173",  # Frontend dev server
-    "http://localhost:5173",
-    "http://localhost:8080",
-    PORTAL_DNS,
-    "https://elevatediq.ai",
-    "https://www.elevatediq.ai",
+    FRONTEND_IP_URL,
+    # Phase 2: Environment-specific DNS URLs
+    ENV_URLS["development"]["portal_url"],
+    ENV_URLS["development"]["api_url"],
+    ENV_URLS["staging"]["portal_url"],
+    ENV_URLS["staging"]["api_url"],
+    ENV_URLS["production"]["portal_url"],
+    ENV_URLS["production"]["api_url"],
+    # Also allow domain roots
+    "https://dev.elevatedoq.ai",
+    "https://qa.elevatedoq.ai",
+    "https://elevatedoq.ai",
 ]
 
 # Database configuration
@@ -65,6 +96,10 @@ __all__ = [
     "API_CONFIG",
     "HUB_CONFIG",
     "LOGGING_CONFIG",
+    "ENVIRONMENT",
+    "PORTAL_URL",
+    "API_URL",
+    "ALLOWED_ORIGINS",
 ]
 
 

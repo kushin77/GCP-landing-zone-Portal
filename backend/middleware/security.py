@@ -288,20 +288,19 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
 
 def get_cors_config() -> dict:
-    """Get CORS configuration for FastAPI."""
+    """Get CORS configuration for FastAPI.
+
+    IMPORTANT: Does NOT use localhost/127.0.0.1 - uses IP address (192.168.168.42)
+    and environment-specific DNS URLs instead.
+    """
+    from config import ALLOWED_ORIGINS as CONFIG_ALLOWED_ORIGINS, ENVIRONMENT
 
     if SecurityConfig.IS_PRODUCTION:
-        # Production: Only allow specific origins
-        allowed_origins = list(SecurityConfig.ALLOWED_ORIGINS) or ["https://portal.landing-zone.io"]
+        # Production: Use config-provided origins (environment DNS URLs only)
+        allowed_origins = list(CONFIG_ALLOWED_ORIGINS) or ["https://elevatedoq.ai"]
     else:
-        # Development: Allow localhost
-        allowed_origins = [
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://localhost:8080",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:5173",
-        ]
+        # Development: Use IP address + environment DNS URLs (NOT localhost)
+        allowed_origins = CONFIG_ALLOWED_ORIGINS
 
     return {
         "allow_origins": allowed_origins,
