@@ -347,10 +347,10 @@ Structure tests clearly:
 def test_calculate_cost(client):
     # Arrange: Setup test data
     project = {"id": "test-project", "resources": 10}
-    
+
     # Act: Perform action
     response = client.post("/api/cost", json=project)
-    
+
     # Assert: Verify results
     assert response.status_code == 200
     assert response.json()["cost"] > 0
@@ -444,19 +444,19 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
-      
+
       - name: Run tests
         run: |
           pytest backend/tests/ \
@@ -464,7 +464,7 @@ jobs:
             --cov-report=term-missing \
             --cov-fail-under=80 \
             -v
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
@@ -516,6 +516,6 @@ pytest --tb=long
 
 ---
 
-**Last Updated:** 2026-01-29  
-**Minimum Coverage:** 80%  
+**Last Updated:** 2026-01-29
+**Minimum Coverage:** 80%
 **Test Framework:** pytest 7.0+

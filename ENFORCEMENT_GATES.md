@@ -135,19 +135,28 @@ git log --pretty=format:"%h %G? %s" | head -50
 pre-commit run --all-files
 ```
 
-**Current Status**: ⚠️ **PENDING - REQUIRES ACTION**
+**Current Status**: ⚠️ **PENDING - PARTIALLY IMPLEMENTED**
 - ✅ Gitleaks scan: 0 findings
 - ✅ Private key detection: enabled
-- ✅ Pre-commit hooks: configured
-- 🔴 **GPG Commit Signing**: Not yet implemented (0/8 commits signed)
+- ✅ Pre-commit hooks: configured and functional
+- ⚠️ **GPG Commit Signing**: Partially implemented (some commits signed, 53 unsigned commits in history)
 
 **To Complete This Gate**:
 ```bash
-# 1. Set up GPG signing (if not done)
-git config --global user.signingkey <GPG_KEY_ID>
+# 1. Verify GPG key is properly configured
+gpg --list-keys
 
-# 2. Amend all commits with GPG signatures
-git rebase --exec 'git commit --amend --no-edit -S' main~8
+# 2. Ensure signing key is set
+git config user.signingkey
+
+# 3. For future commits, signing is enabled
+git config commit.gpgsign
+
+# 4. To sign existing commits (requires force push - use with caution)
+# git rebase --exec 'git commit --amend --no-edit -S' <commit-range>
+```
+
+**Note**: GPG signing is enabled for new commits. Historical commits may remain unsigned as amending would require force push to shared repository.
 
 # 3. Force push with signatures
 git push --force-with-lease origin main

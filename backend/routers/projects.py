@@ -4,7 +4,7 @@ Projects API router.
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from models.schemas import Project, ResourceListResponse
+from models.schemas import Project, ResourceListResponse, ProjectCreateRequest
 from services.gcp_client import ProjectService, gcp_clients
 
 router = APIRouter(prefix="/api/v1/projects", tags=["projects"])
@@ -76,3 +76,21 @@ async def get_project_costs(project_id: str, days: int = Query(30, ge=1, le=365)
         "total_cost": total_cost,
         "currency": "USD",
     }
+
+@router.post("/", response_model=Project, status_code=201)
+async def create_project(
+    request: ProjectCreateRequest,
+    service: ProjectService = Depends(get_project_service)
+):
+    """Create a new GCP project."""
+    # In a real implementation, this would call service.create_project
+    # For now, we mock the creation and return a Project object
+    return Project(
+        id=request.id or f"project-{request.name.lower().replace(' ', '-')}",
+        name=request.name,
+        number="123456789",
+        state="ACTIVE",
+        labels=request.labels or {},
+        parent=request.parent,
+        create_time="2024-01-01T00:00:00Z"
+    )

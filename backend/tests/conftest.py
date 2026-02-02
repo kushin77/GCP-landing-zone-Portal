@@ -23,6 +23,14 @@ os.environ["ENVIRONMENT"] = "test"
 os.environ["REQUIRE_AUTH"] = "false"
 os.environ["ALLOW_DEV_BYPASS"] = "true"
 
+# Mock GCP before any imports that might trigger it
+mock_gcp_auth = patch("google.auth.default", return_value=(MagicMock(), "test-project"))
+mock_gcp_auth.start()
+
+# Mock Secret Manager to prevent hangs during config load
+mock_gsm = patch("google.cloud.secretmanager_v1.SecretManagerServiceClient")
+mock_gsm.start()
+
 from main import app  # noqa: E402
 from middleware.auth import User, get_permissions_for_roles  # noqa: E402
 
@@ -135,23 +143,20 @@ def viewer_headers() -> Dict[str, str]:
 # ============================================================================
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_gcp_clients():
-    """Mock all GCP clients."""
-    with patch("services.gcp_client.GCPClientManager") as mock:
-        manager = MagicMock()
-
+    """Mock all GCP clients automatically for all tests."""
+    with patch("services.gcp_client.gcp_clients") as mock:
         # Mock Projects client
-        manager.projects = MagicMock()
-        manager.projects.list_projects.return_value = iter(
-            [
+        mock.projects = MagicMock()
+        mock.projects.list_projects.return_value = [
                 MagicMock(
                     name="projects/123456789",
                     project_id="test-project-1",
                     display_name="Test Project 1",
                     state=MagicMock(name="ACTIVE"),
                     parent="folders/12345",
-                    create_time=datetime.utcnow(),
+                    create_time=datetime.now(),
                     labels={"env": "test"},
                 ),
                 MagicMock(
@@ -160,23 +165,25 @@ def mock_gcp_clients():
                     display_name="Test Project 2",
                     state=MagicMock(name="ACTIVE"),
                     parent="folders/12345",
-                    create_time=datetime.utcnow(),
+                    create_time=datetime.now(),
                     labels={"env": "prod"},
                 ),
             ]
-        )
+
+        # Mock methods on gcp_clients itself if it has any that are called directly
+        # Typically services import ProjectService(gcp_clients)
+        # So we need mock.projects to be the mock client.
 
         # Mock BigQuery client
-        manager.bigquery = MagicMock()
+        mock.bigquery = MagicMock()
 
         # Mock Asset client
-        manager.assets = MagicMock()
+        mock.assets = MagicMock()
 
         # Mock Storage client
-        manager.storage = MagicMock()
+        mock.storage = MagicMock()
 
-        mock.return_value = manager
-        yield manager
+        yield mock
 
 
 @pytest.fixture

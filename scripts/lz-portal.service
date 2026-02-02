@@ -1,0 +1,30 @@
+[Unit]
+Description=GCP Landing Zone Portal
+Documentation=https://github.com/kushin77/GCP-landing-zone-Portal
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=akushnir
+WorkingDirectory=/home/akushnir/GCP-landing-zone-Portal
+ExecStartPre=/usr/bin/docker-compose pull
+ExecStart=/usr/bin/docker-compose up
+ExecStop=/usr/bin/docker-compose down
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=lz-portal
+Environment="ENVIRONMENT=production"
+Environment="BIND_HOST=0.0.0.0"
+Environment="PORT=8080"
+
+# Resource limits
+MemoryLimit=4G
+CPUQuota=200%
+TasksMax=512
+
+[Install]
+WantedBy=multi-user.target

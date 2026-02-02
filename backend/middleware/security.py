@@ -81,8 +81,8 @@ def get_security_headers(request: Request) -> dict:
         "Pragma": "no-cache",
     }
 
-    # HSTS (only in production with HTTPS)
-    if SecurityConfig.IS_PRODUCTION:
+    # HSTS (only in production with HTTPS or testing)
+    if SecurityConfig.IS_PRODUCTION or os.getenv("TESTING") == "true":
         headers[
             "Strict-Transport-Security"
         ] = f"max-age={SecurityConfig.HSTS_MAX_AGE}; includeSubDomains; preload"

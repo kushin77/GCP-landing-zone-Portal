@@ -151,3 +151,32 @@ volumes:
   redis-data:
   prometheus-data:
   grafana-data:
+
+# ============================================================================
+# Development Profile Configuration
+# ============================================================================
+
+# To enable host networking for development (allows access from other machines):
+# 1. Uncomment the following and add 'profiles: ["dev"]' to backend and frontend services
+# 2. Run with: docker-compose --profile dev up
+# 3. Access via host IP instead of localhost
+#
+# WARNING: Host networking bypasses Docker's network isolation
+# - Services bind directly to host ports
+# - No port mapping needed
+# - Requires careful port management to avoid conflicts
+# - Only suitable for development environments
+#
+# Example configuration:
+# services:
+#   backend:
+#     profiles: ["dev"]
+#     network_mode: host
+#     environment:
+#       - BIND_HOST=0.0.0.0
+#       - PORT=8080
+#   frontend:
+#     profiles: ["dev"]
+#     network_mode: host
+#     environment:
+#       - VITE_API_URL=http://<host-ip>:8080

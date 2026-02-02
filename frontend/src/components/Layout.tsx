@@ -10,6 +10,7 @@ import {
   ShieldCheckIcon,
   ClipboardDocumentCheckIcon,
   SparklesIcon,
+  MagnifyingGlassIcon,
   Bars3Icon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -23,6 +24,7 @@ const navigation = [
   { name: 'Projects', href: '/projects', icon: CubeIcon },
   { name: 'Costs', href: '/costs', icon: CurrencyDollarIcon },
   { name: 'Compliance', href: '/compliance', icon: ShieldCheckIcon },
+  { name: 'Analysis', href: '/analysis', icon: MagnifyingGlassIcon },
   { name: 'Workflows', href: '/workflows', icon: ClipboardDocumentCheckIcon },
   { name: 'AI Assistant', href: '/ai', icon: SparklesIcon },
 ];

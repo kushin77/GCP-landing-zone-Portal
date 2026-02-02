@@ -4,6 +4,7 @@ Provides a lightweight, mockable discovery API to enumerate endpoints and servic
 This is intentionally small and testable; real GCP API calls will be added later.
 """
 from typing import List
+
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/api/v1/discovery", tags=["discovery"])

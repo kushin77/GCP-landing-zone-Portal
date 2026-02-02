@@ -6,6 +6,7 @@
 FastAPI==0.109.0
 pydantic[email]==2.5.0
 pydantic-settings==2.1.0
+email-validator>=2.1.0
 starlette==0.35.1
 
 # ASGI Server

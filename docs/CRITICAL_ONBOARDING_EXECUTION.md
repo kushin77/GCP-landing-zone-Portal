@@ -13,8 +13,8 @@ Ensure you have:
 
 ## Task #104: Rotate Compromised Token
 
-**Status:** ⏳ In Progress  
-**Estimated Duration:** 1-2 hours  
+**Status:** ⏳ In Progress
+**Estimated Duration:** 1-2 hours
 **Owner:** @kushin77
 
 ### Steps
@@ -63,9 +63,9 @@ Ensure you have:
 
 ## Task #105: Migrate Secrets to Google Secret Manager
 
-**Status:** ⏳ In Progress  
-**Estimated Duration:** 2-4 hours  
-**Owner:** @kushin77  
+**Status:** ⏳ In Progress
+**Estimated Duration:** 2-4 hours
+**Owner:** @kushin77
 **Depends on:** Task #104
 
 ### Steps
@@ -74,7 +74,7 @@ Ensure you have:
    ```bash
    # List GitHub Secrets
    gh secret list
-   
+
    # List GCP Secrets
    gcloud secrets list --project="${GCP_PROJECT_ID}"
    ```
@@ -83,7 +83,7 @@ Ensure you have:
    ```bash
    # Store each secret with the format:
    # echo "<SECRET_VALUE>" | ./scripts/gsm_store_pat.sh <SECRET_NAME>
-   
+
    echo "$GITHUB_PAT" | ./scripts/gsm_store_pat.sh github-pat
    # Repeat for each secret: GCP_SA_KEY, API_KEY, etc.
    ```
@@ -122,9 +122,9 @@ Ensure you have:
 
 ## Task #106: Verify CI Pipelines
 
-**Status:** ⏳ In Progress  
-**Estimated Duration:** 1-2 hours  
-**Owner:** @kushin77  
+**Status:** ⏳ In Progress
+**Estimated Duration:** 1-2 hours
+**Owner:** @kushin77
 **Depends on:** Tasks #104-105
 
 ### Steps
@@ -133,7 +133,7 @@ Ensure you have:
    ```bash
    # View recent builds
    gcloud builds list --limit=5
-   
+
    # View detailed build log
    gcloud builds log <BUILD_ID>
    ```
@@ -143,7 +143,7 @@ Ensure you have:
    # Run tests locally
    cd backend
    pytest -v --cov
-   
+
    # Check coverage threshold
    ```
 
@@ -173,8 +173,8 @@ Ensure you have:
 
 ## Task #107: Document Test Commands & Pytest Workflow
 
-**Status:** ⏳ In Progress  
-**Estimated Duration:** 1-2 hours  
+**Status:** ⏳ In Progress
+**Estimated Duration:** 1-2 hours
 **Owner:** @kushin77
 
 ### Steps
@@ -189,7 +189,7 @@ Ensure you have:
    ```bash
    # Check pytest.ini
    cat backend/pytest.ini
-   
+
    # Run with verbose output
    pytest -v backend/tests/
    ```
@@ -247,6 +247,6 @@ All 4 critical tasks (#104-107) are complete when:
 
 ---
 
-**Last Updated:** 2026-01-29  
-**Related Issues:** #104, #105, #106, #107  
+**Last Updated:** 2026-01-29
+**Related Issues:** #104, #105, #106, #107
 **Parent Epic:** #90 (Secrets & IAM)

@@ -42,6 +42,7 @@ class RateLimitConfig:
             "/api/v1/ai/query": {"per_minute": 10, "per_hour": 100},  # AI is expensive
             "/api/v1/costs": {"per_minute": 30, "per_hour": 300},
             "/health": {"per_minute": 1000, "per_hour": 10000},  # Health checks unlimited
+                "/auth/login": {"per_minute": 10, "per_hour": 100},
         }
     )
 

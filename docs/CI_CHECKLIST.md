@@ -1,7 +1,7 @@
 # CI/CD Verification Checklist
 
-**Issue #106 Deliverable**  
-**Status:** Pre-Flight Checklist (Ready for execution after #104 & #105 complete)  
+**Issue #106 Deliverable**
+**Status:** Pre-Flight Checklist (Ready for execution after #104 & #105 complete)
 **Depends On:** #104 (token rotation), #105 (GSM migration)
 
 ---
@@ -432,9 +432,9 @@ gcloud secrets versions access latest --secret=gcp-sa-key | head -c 20
 
 ## Sign-Off
 
-**Completed By:** [Your Name]  
-**Completion Date:** [Date]  
-**Issue Link:** https://github.com/kushin77/GCP-landing-zone-Portal/issues/106  
+**Completed By:** [Your Name]
+**Completion Date:** [Date]
+**Issue Link:** https://github.com/kushin77/GCP-landing-zone-Portal/issues/106
 **Epic Link:** https://github.com/kushin77/GCP-landing-zone-Portal/issues/88
 
 ---

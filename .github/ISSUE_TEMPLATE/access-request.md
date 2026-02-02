@@ -10,10 +10,10 @@ labels: access
 Please provide the following information:
 
 ### Requestor Information
-- **Full Name:** 
-- **GitHub Username:** 
+- **Full Name:**
+- **GitHub Username:**
 - **GCP Email:** (if different from GitHub email)
-- **Team/Role:** 
+- **Team/Role:**
 - **Business Justification:** (Why do you need access?)
 
 ### Access Type
@@ -49,5 +49,5 @@ This request must be approved by at least one project maintainer:
 
 ---
 
-**⏱️ Expected Response Time:** 2-3 business days  
+**⏱️ Expected Response Time:** 2-3 business days
 **❓ Questions?** Comment below or reach out to @kushin77
