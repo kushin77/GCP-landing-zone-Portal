@@ -47,6 +47,33 @@ npm test
 - Changes to the Terraform layers or CI/CD (cloudbuild.yaml, scripts/deployment).
 - Adding or changing production K8s manifests.
 
+## Issue-driven workflow (mandatory)
+
+Agents must follow an issue-first workflow for all changes.
+
+- **Create an issue** before coding. Include a concise plan and expected tests.
+- **Reference the issue** in every commit and PR (use `(#<issue>)` in commit subjects or bodies).
+- **Comment progress** to the issue: `WIP`, `running tests`, `ready for review`.
+- **Run tests** locally or in the devcontainer and paste results into the issue.
+- **Request a peer review**, address feedback, and merge only after at least one approval.
+- **Close the issue** with a final comment referencing the merged PR(s) and test status.
+
+Examples (CLI):
+
+```bash
+# create issue
+gh issue create --title "feat: add X" --body "Plan: ..."
+
+# commit referencing issue
+git commit -m "feat(api): implement X (#162)"
+
+# open PR referencing issue
+gh pr create --title "feat(api): implement X (#162)" --body "Closes #162"
+
+# close issue after merge
+gh issue close 162 --comment "Merged PR #133. Tests passing. Closing."
+```
+
 ## Minimal examples
 - Adding a router: put handlers in `backend/routers/`, use Pydantic models from `backend/models/schemas.py`, and register in `backend/main.py`.
 - Adding a service: add a module under `backend/services/`, add unit tests under `backend/tests/`, and mock GCP clients in tests.
