@@ -1,0 +1,21 @@
+name: Issue Summarizer CI
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tools/issue-summarizer/requirements.txt
+      - name: Run tests
+        run: pytest tools/issue-summarizer/tests -q
