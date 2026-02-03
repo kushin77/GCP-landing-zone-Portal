@@ -25,6 +25,7 @@ google-cloud-resource-manager>=1.11.0
 google-cloud-asset>=3.22.0
 google-cloud-monitoring>=2.18.0
 google-cloud-storage>=2.14.0
+google-cloud-tasks>=2.14.0
 
 # Authentication
 google-auth>=2.25.0

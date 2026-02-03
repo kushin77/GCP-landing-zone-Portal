@@ -333,3 +333,64 @@ class UserPermissions(BaseModel):
     can_view_costs: bool = True
     can_modify_compliance: bool = False
     max_monthly_budget: Optional[float] = None
+
+
+# GitHub Issue Delegation Models
+class TaskStatus(str, Enum):
+    """Status of a delegated task."""
+    PENDING = "pending"
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class GitHubIssue(BaseModel):
+    """GitHub issue model."""
+    
+    number: int
+    title: str
+    body: Optional[str] = None
+    state: str
+    labels: List[str] = []
+    assignees: List[str] = []
+    created_at: datetime
+    updated_at: datetime
+    html_url: str
+    repository: str
+
+
+class DelegatedTask(BaseModel):
+    """Delegated task model."""
+    
+    id: str
+    issue_number: int
+    repository: str
+    title: str
+    description: Optional[str] = None
+    status: TaskStatus
+    cloud_task_name: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    error_message: Optional[str] = None
+    result: Optional[Dict[str, Any]] = None
+    logs: List[str] = []
+
+
+class DelegationRequest(BaseModel):
+    """Request to delegate GitHub issues to cloud tasks."""
+    
+    repository: str = Field(..., description="GitHub repository in format 'owner/repo'")
+    issue_numbers: Optional[List[int]] = Field(None, description="Specific issue numbers to delegate (if None, delegates all open issues)")
+    labels: Optional[List[str]] = Field(None, description="Filter issues by labels")
+    auto_approve: bool = Field(False, description="Automatically approve and start tasks without review")
+
+
+class DelegationResponse(BaseResponse):
+    """Response from delegation request."""
+    
+    tasks_created: int
+    tasks: List[DelegatedTask]
