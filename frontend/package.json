@@ -44,7 +44,7 @@
     "@vitest/ui": "^1.0.4",
     "autoprefixer": "^10.4.16",
     "axios-mock-adapter": "^1.22.0",
-    "cypress": "^13.6.0",
+    "cypress": "^15.10.0",
     "eslint": "^8.52.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "postcss": "^8.4.32",
